@@ -1,0 +1,310 @@
+
+<style>
+  :root { --meter-h: 180px; }
+  .db-root { padding: 1rem 0; font-family: var(--font-sans); }
+  .top-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px,1fr)); gap: 10px; margin-bottom: 1rem; }
+  .metric { background: var(--color-background-secondary); border-radius: var(--border-radius-md); padding: 12px 14px; }
+  .metric-label { font-size: 12px; color: var(--color-text-secondary); margin: 0 0 4px; }
+  .metric-value { font-size: 24px; font-weight: 500; color: var(--color-text-primary); margin: 0; }
+  .meter-wrap { background: var(--color-background-secondary); border-radius: var(--border-radius-lg); padding: 1rem 1.25rem; margin-bottom: 1rem; }
+  .meter-title { font-size: 13px; color: var(--color-text-secondary); margin: 0 0 10px; }
+  .meter-bar-track { width: 100%; height: 22px; background: var(--color-background-primary); border: 0.5px solid var(--color-border-tertiary); border-radius: 6px; overflow: hidden; margin-bottom: 6px; }
+  .meter-bar-fill { height: 100%; border-radius: 6px; transition: width 0.08s linear; background: #1D9E75; }
+  .meter-labels { display: flex; justify-content: space-between; font-size: 11px; color: var(--color-text-tertiary); margin-bottom: 10px; }
+  .visual-wrap { background: var(--color-background-secondary); border-radius: var(--border-radius-lg); padding: 1rem 1.25rem; margin-bottom: 1rem; text-align: center; }
+  .visual-title { font-size: 13px; color: var(--color-text-secondary); margin: 0 0 8px; text-align: left; }
+  .equiv-label { font-size: 22px; font-weight: 500; color: var(--color-text-primary); margin-bottom: 2px; }
+  .equiv-desc { font-size: 13px; color: var(--color-text-secondary); margin: 0; }
+  .log-wrap { background: var(--color-background-secondary); border-radius: var(--border-radius-lg); padding: 1rem 1.25rem; margin-bottom: 1rem; }
+  .log-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
+  .log-title { font-size: 13px; color: var(--color-text-secondary); margin: 0; }
+  .log-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  .log-table th { font-size: 11px; color: var(--color-text-tertiary); font-weight: 400; text-align: left; padding: 4px 6px; border-bottom: 0.5px solid var(--color-border-tertiary); }
+  .log-table td { padding: 5px 6px; color: var(--color-text-primary); border-bottom: 0.5px solid var(--color-border-tertiary); }
+  .log-table tr:last-child td { border-bottom: none; }
+  .btn-row { display: flex; gap: 8px; margin-bottom: 1rem; flex-wrap: wrap; }
+  button { background: transparent; border: 0.5px solid var(--color-border-secondary); border-radius: var(--border-radius-md); padding: 7px 14px; font-size: 13px; color: var(--color-text-primary); cursor: pointer; }
+  button:hover { background: var(--color-background-secondary); }
+  button:active { transform: scale(0.98); }
+  button.active { background: var(--color-background-info); color: var(--color-text-info); border-color: transparent; }
+  .pill { display: inline-block; font-size: 11px; padding: 2px 8px; border-radius: 20px; font-weight: 500; }
+  .pill-quiet { background: #E1F5EE; color: #0F6E56; }
+  .pill-moderate { background: #FAEEDA; color: #854F0B; }
+  .pill-loud { background: #FAECE7; color: #993C1D; }
+  .pill-very-loud { background: #FCEBEB; color: #A32D2D; }
+  .chart-wrap { background: var(--color-background-secondary); border-radius: var(--border-radius-lg); padding: 1rem 1.25rem; margin-bottom: 1rem; }
+  .chart-title { font-size: 13px; color: var(--color-text-secondary); margin: 0 0 10px; }
+  .permission-msg { background: var(--color-background-secondary); border-radius: var(--border-radius-lg); padding: 2rem; text-align: center; margin-bottom: 1rem; }
+  .permission-msg p { color: var(--color-text-secondary); font-size: 14px; margin: 0 0 1rem; }
+  .icon-big { font-size: 48px; display: block; margin-bottom: 12px; }
+</style>
+
+<div class="db-root">
+  <h2 class="sr-only">Decibel meter — records ambient noise level via microphone, logs average, min, and max dB over time.</h2>
+
+  <div id="permission-gate" class="permission-msg">
+    <i class="ti ti-microphone icon-big" aria-hidden="true" style="color: var(--color-text-secondary);"></i>
+    <p>Click start to grant microphone access and begin measuring ambient noise.</p>
+    <button id="start-btn"><i class="ti ti-player-play" aria-hidden="true"></i> Start recording</button>
+  </div>
+
+  <div id="main-ui" style="display:none;">
+    <div class="btn-row">
+      <button id="toggle-btn" class="active"><i class="ti ti-player-pause" aria-hidden="true"></i> Pause</button>
+      <button id="log-btn"><i class="ti ti-device-floppy" aria-hidden="true"></i> Save snapshot</button>
+      <button id="clear-btn"><i class="ti ti-trash" aria-hidden="true"></i> Clear log</button>
+      <button id="export-btn"><i class="ti ti-download" aria-hidden="true"></i> Export CSV</button>
+    </div>
+
+    <div class="top-grid">
+      <div class="metric"><p class="metric-label">Current dB</p><p class="metric-value" id="cur-db">—</p></div>
+      <div class="metric"><p class="metric-label">Session avg</p><p class="metric-value" id="avg-db">—</p></div>
+      <div class="metric"><p class="metric-label">Session min</p><p class="metric-value" id="min-db">—</p></div>
+      <div class="metric"><p class="metric-label">Session max</p><p class="metric-value" id="max-db">—</p></div>
+    </div>
+
+    <div class="meter-wrap">
+      <p class="meter-title">Live level</p>
+      <div class="meter-bar-track"><div class="meter-bar-fill" id="meter-fill" style="width:0%"></div></div>
+      <div class="meter-labels"><span>0 dB</span><span>20</span><span>40</span><span>60</span><span>80</span><span>100+</span></div>
+    </div>
+
+    <div class="visual-wrap">
+      <p class="visual-title">Equivalent sound</p>
+      <div style="font-size: 56px; margin: 4px 0;" id="equiv-icon">🍃</div>
+      <p class="equiv-label" id="equiv-label">Very quiet</p>
+      <p class="equiv-desc" id="equiv-desc">Rustling leaves / near silence</p>
+    </div>
+
+    <div class="chart-wrap">
+      <p class="chart-title">Level over time (last 60s)</p>
+      <div style="position:relative;height:140px;"><canvas id="live-chart" role="img" aria-label="Live dB level over last 60 seconds"></canvas></div>
+    </div>
+
+    <div class="log-wrap">
+      <div class="log-header">
+        <p class="log-title">Snapshot log <span id="log-count" style="color:var(--color-text-tertiary);">(0 entries)</span></p>
+      </div>
+      <div style="max-height:240px;overflow-y:auto;">
+        <table class="log-table">
+          <thead><tr><th>Time</th><th>Avg dB</th><th>Min</th><th>Max</th><th>Level</th></tr></thead>
+          <tbody id="log-body"><tr><td colspan="5" style="color:var(--color-text-tertiary);text-align:center;padding:12px;">No snapshots yet — press "Save snapshot" or they auto-save every 5 min.</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<script>
+const COOKIE_KEY = 'db_noise_log_v2';
+const CHART_POINTS = 60;
+
+const equivLevels = [
+  { max: 20, icon: '🌌', label: 'Near silence', desc: 'Empty studio / anechoic chamber' },
+  { max: 30, icon: '🍃', label: 'Very quiet', desc: 'Rustling leaves / quiet library' },
+  { max: 40, icon: '🏠', label: 'Quiet room', desc: 'Subdued conversation at home' },
+  { max: 50, icon: '🌿', label: 'Moderate quiet', desc: 'Quiet office / gentle rain' },
+  { max: 60, icon: '💬', label: 'Conversation', desc: 'Normal speech at 1m' },
+  { max: 70, icon: '🚗', label: 'Busy office', desc: 'Car interior / vacuum cleaner' },
+  { max: 80, icon: '🚙', label: 'Loud traffic', desc: 'Busy road / restaurant' },
+  { max: 90, icon: '🏭', label: 'Very loud', desc: 'Heavy machinery / lawnmower' },
+  { max: 100, icon: '🎸', label: 'Near damaging', desc: 'Rock concert front rows' },
+  { max: 999, icon: '✈️', label: 'Extremely loud', desc: 'Jet engine / siren close up' },
+];
+
+function levelPill(db) {
+  if (db < 45) return '<span class="pill pill-quiet">Quiet</span>';
+  if (db < 65) return '<span class="pill pill-moderate">Moderate</span>';
+  if (db < 80) return '<span class="pill pill-loud">Loud</span>';
+  return '<span class="pill pill-very-loud">Very loud</span>';
+}
+
+function getMeterColor(db) {
+  if (db < 50) return '#1D9E75';
+  if (db < 70) return '#EF9F27';
+  if (db < 85) return '#D85A30';
+  return '#E24B4A';
+}
+
+function saveCookie(data) {
+  try {
+    const enc = encodeURIComponent(JSON.stringify(data));
+    document.cookie = `${COOKIE_KEY}=${enc};max-age=31536000;path=/;SameSite=Lax`;
+  } catch(e) {}
+}
+
+function loadCookie() {
+  try {
+    const m = document.cookie.split('; ').find(r => r.startsWith(COOKIE_KEY + '='));
+    if (!m) return [];
+    return JSON.parse(decodeURIComponent(m.split('=').slice(1).join('=')));
+  } catch(e) { return []; }
+}
+
+let running = false;
+let audioCtx, analyser, micStream;
+let sessionSamples = [], liveData = [];
+let log = loadCookie();
+let chart;
+let autoSaveTimer = null;
+
+function formatTime(ts) {
+  return new Date(ts).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit', second:'2-digit'});
+}
+
+function formatDateShort(ts) {
+  return new Date(ts).toLocaleDateString([], {month:'short', day:'numeric'}) + ' ' + new Date(ts).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'});
+}
+
+function renderLog() {
+  const tbody = document.getElementById('log-body');
+  document.getElementById('log-count').textContent = `(${log.length} entr${log.length===1?'y':'ies'})`;
+  if (!log.length) {
+    tbody.innerHTML = '<tr><td colspan="5" style="color:var(--color-text-tertiary);text-align:center;padding:12px;">No snapshots yet.</td></tr>';
+    return;
+  }
+  tbody.innerHTML = [...log].reverse().map(e =>
+    `<tr><td style="white-space:nowrap;font-size:12px;">${formatDateShort(e.ts)}</td><td>${e.avg}</td><td>${e.min}</td><td>${e.max}</td><td>${levelPill(e.avg)}</td></tr>`
+  ).join('');
+}
+
+function saveSnapshot(auto) {
+  if (!sessionSamples.length) return;
+  const avg = Math.round(sessionSamples.reduce((a,b)=>a+b,0)/sessionSamples.length);
+  const mn = Math.round(Math.min(...sessionSamples));
+  const mx = Math.round(Math.max(...sessionSamples));
+  const entry = { ts: Date.now(), avg, min: mn, max: mx, auto: !!auto };
+  log.push(entry);
+  if (log.length > 500) log = log.slice(-500);
+  saveCookie(log);
+  renderLog();
+  sessionSamples = [];
+}
+
+function initChart() {
+  const ctx = document.getElementById('live-chart').getContext('2d');
+  const labels = Array(CHART_POINTS).fill('');
+  const data = Array(CHART_POINTS).fill(null);
+  chart = new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels,
+      datasets: [{
+        label: 'dB', data, borderColor: '#1D9E75', backgroundColor: 'rgba(29,158,117,0.07)',
+        borderWidth: 1.5, pointRadius: 0, tension: 0.3, fill: true
+      }]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false, animation: false,
+      plugins: { legend: { display: false } },
+      scales: {
+        x: { display: false },
+        y: { min: 0, max: 100, ticks: { font: { size: 11 }, color: '#888', callback: v => v + ' dB' }, grid: { color: 'rgba(128,128,128,0.1)' } }
+      }
+    }
+  });
+}
+
+function pushChart(db) {
+  liveData.push(db);
+  if (liveData.length > CHART_POINTS) liveData.shift();
+  const padded = Array(CHART_POINTS - liveData.length).fill(null).concat(liveData);
+  chart.data.datasets[0].data = padded;
+  chart.update('none');
+}
+
+function updateUI(db) {
+  const rounded = Math.round(db);
+  document.getElementById('cur-db').textContent = rounded + ' dB';
+  document.getElementById('meter-fill').style.width = Math.min(db, 100) + '%';
+  document.getElementById('meter-fill').style.background = getMeterColor(db);
+
+  sessionSamples.push(db);
+  const avg = Math.round(sessionSamples.reduce((a,b)=>a+b,0)/sessionSamples.length);
+  const mn = Math.round(Math.min(...sessionSamples));
+  const mx = Math.round(Math.max(...sessionSamples));
+  document.getElementById('avg-db').textContent = avg + ' dB';
+  document.getElementById('min-db').textContent = mn + ' dB';
+  document.getElementById('max-db').textContent = mx + ' dB';
+
+  const eq = equivLevels.find(e => db <= e.max) || equivLevels[equivLevels.length-1];
+  document.getElementById('equiv-icon').textContent = eq.icon;
+  document.getElementById('equiv-label').textContent = eq.label;
+  document.getElementById('equiv-desc').textContent = eq.desc;
+
+  pushChart(db);
+}
+
+function dbFromAnalyser() {
+  const buf = new Float32Array(analyser.fftSize);
+  analyser.getFloatTimeDomainData(buf);
+  let rms = 0;
+  for (let i = 0; i < buf.length; i++) rms += buf[i] * buf[i];
+  rms = Math.sqrt(rms / buf.length);
+  if (rms === 0) return 0;
+  return Math.max(0, 20 * Math.log10(rms) + 90);
+}
+
+let rafId;
+function loop() {
+  if (!running) return;
+  updateUI(dbFromAnalyser());
+  rafId = requestAnimationFrame(loop);
+}
+
+async function startMic() {
+  try {
+    micStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    analyser = audioCtx.createAnalyser();
+    analyser.fftSize = 2048;
+    const src = audioCtx.createMediaStreamSource(micStream);
+    src.connect(analyser);
+    running = true;
+    document.getElementById('permission-gate').style.display = 'none';
+    document.getElementById('main-ui').style.display = 'block';
+    initChart();
+    renderLog();
+    loop();
+    autoSaveTimer = setInterval(() => saveSnapshot(true), 5 * 60 * 1000);
+  } catch(e) {
+    alert('Microphone access denied or unavailable: ' + e.message);
+  }
+}
+
+document.getElementById('start-btn').addEventListener('click', startMic);
+
+document.getElementById('toggle-btn').addEventListener('click', () => {
+  running = !running;
+  const btn = document.getElementById('toggle-btn');
+  if (running) {
+    btn.innerHTML = '<i class="ti ti-player-pause" aria-hidden="true"></i> Pause';
+    btn.classList.add('active');
+    loop();
+  } else {
+    btn.innerHTML = '<i class="ti ti-player-play" aria-hidden="true"></i> Resume';
+    btn.classList.remove('active');
+    cancelAnimationFrame(rafId);
+  }
+});
+
+document.getElementById('log-btn').addEventListener('click', () => saveSnapshot(false));
+
+document.getElementById('clear-btn').addEventListener('click', () => {
+  if (!confirm('Clear all saved log entries?')) return;
+  log = [];
+  saveCookie(log);
+  renderLog();
+});
+
+document.getElementById('export-btn').addEventListener('click', () => {
+  if (!log.length) { alert('No log entries to export.'); return; }
+  const rows = ['Timestamp,Avg dB,Min dB,Max dB,Type'];
+  log.forEach(e => rows.push(`"${new Date(e.ts).toISOString()}",${e.avg},${e.min},${e.max},${e.auto?'auto':'manual'}`));
+  const blob = new Blob([rows.join('\n')], { type: 'text/csv' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a'); a.href = url; a.download = 'noise_log.csv'; a.click();
+  URL.revokeObjectURL(url);
+});
+</script>
