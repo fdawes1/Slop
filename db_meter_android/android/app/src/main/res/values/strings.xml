@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">NoiseWatch-7</string>
+    <string name="title_activity_main">NoiseWatch-7</string>
+    <string name="package_name">com.fdawes1.noisewatch7</string>
+    <string name="custom_url_scheme">com.fdawes1.noisewatch7</string>
+</resources>

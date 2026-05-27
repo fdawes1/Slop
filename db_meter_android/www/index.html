@@ -1,0 +1,449 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self' https://fonts.googleapis.com https://fonts.gstatic.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; script-src 'self' 'unsafe-inline'; media-src *; connect-src *">
+  <title>NOISEWATCH-7</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Share+Tech+Mono&display=swap');
+  *{box-sizing:border-box;margin:0;padding:0;}
+  html,body{background:#050d12;height:100%;overscroll-behavior:none;}
+  body{overflow-y:auto;-webkit-overflow-scrolling:touch;}
+  .nw-root{background:#050d12;color:#00ffe7;font-family:'Share Tech Mono',monospace;padding:12px;position:relative;overflow:hidden;min-height:100vh;}
+  .nw-root::before{content:'';position:absolute;inset:0;background:repeating-linear-gradient(0deg,transparent,transparent 28px,rgba(0,255,231,0.018) 28px,rgba(0,255,231,0.018) 29px);pointer-events:none;z-index:0;}
+  .nw-inner{position:relative;z-index:1;}
+  .hud-header{display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid #0a3040;padding-bottom:8px;margin-bottom:12px;}
+  .hud-title{font-size:11px;letter-spacing:2px;color:#00ffe7;text-transform:uppercase;}
+  .hud-status{font-size:10px;letter-spacing:2px;color:#0a4050;}
+  .hud-status.active{color:#00ffe7;animation:blink 1.4s step-end infinite;}
+  @keyframes blink{0%,100%{opacity:1}50%{opacity:0.2}}
+  .metric-row{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-bottom:10px;}
+  .metric-row-2{display:grid;grid-template-columns:repeat(2,1fr);gap:6px;margin-bottom:10px;}
+  .metric-box{background:#07151e;border:1px solid;padding:8px 6px;position:relative;clip-path:polygon(0 0,calc(100% - 7px) 0,100% 7px,100% 100%,0 100%);}
+  .metric-box::after{content:'';position:absolute;top:0;right:0;width:0;height:0;border-style:solid;border-width:0 7px 7px 0;border-color:transparent #050d12 transparent transparent;}
+  .m-cyan{border-color:#0a3040;}.m-cyan .metric-val{color:#00ffe7;}
+  .m-violet{border-color:#2a1040;}.m-violet .metric-val{color:#b060ff;}
+  .m-green{border-color:#0a3020;}.m-green .metric-val{color:#00ff88;}
+  .m-red{border-color:#3a1020;}.m-red .metric-val{color:#ff4060;}
+  .m-magenta{border-color:#3a0040;}.m-magenta .metric-val{color:#ff40cc;}
+  .metric-lbl{font-size:8px;letter-spacing:2px;color:#0a5060;margin-bottom:4px;text-transform:uppercase;}
+  .metric-val{font-size:20px;color:#00ffe7;line-height:1;}
+  .metric-unit{font-size:9px;color:#0a5060;margin-top:2px;letter-spacing:1px;}
+  .level-section{margin-bottom:10px;}
+  .level-header{font-size:8px;letter-spacing:2px;color:#0a5060;margin-bottom:5px;text-transform:uppercase;}
+  .level-track{width:100%;height:14px;background:#07151e;border:1px solid #0a3040;overflow:hidden;}
+  .level-segs{display:flex;height:100%;gap:1px;padding:2px;}
+  .seg{flex:1;background:#0a2030;transition:background 0.07s;}
+  .seg.lit-green{background:#00ffe7;}.seg.lit-lime{background:#00ff88;}.seg.lit-amber{background:#f0a500;}.seg.lit-red{background:#ff3040;}
+  .level-scale{display:flex;justify-content:space-between;font-size:8px;color:#0a4050;margin-top:2px;letter-spacing:1px;}
+  .visual-section{background:#07151e;border:1px solid #0a3040;padding:10px;margin-bottom:10px;display:flex;gap:12px;align-items:center;clip-path:polygon(0 0,calc(100% - 10px) 0,100% 10px,100% 100%,0 100%);}
+  .radar-wrap{flex:0 0 64px;height:64px;}
+  .equiv-info{flex:1;}
+  .equiv-class{font-size:8px;letter-spacing:2px;color:#0a5060;text-transform:uppercase;margin-bottom:3px;}
+  .equiv-name{font-size:13px;color:#b060ff;letter-spacing:1px;}
+  .db-readout{text-align:right;font-size:34px;color:#00ffe7;line-height:1;letter-spacing:-1px;}
+  .db-readout span{font-size:12px;color:#0a5060;letter-spacing:2px;}
+  .viz-grid{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:10px;}
+  .viz-cell{background:#07151e;border:1px solid #0a3040;padding:6px 8px 8px;}
+  .viz-lbl{font-size:7px;letter-spacing:1.5px;color:#0a5060;margin-bottom:4px;text-transform:uppercase;}
+  .viz-canvas{display:block;width:100%;}
+  .freq-axis{display:flex;justify-content:space-between;font-size:6px;color:#0a3a4a;margin-top:1px;}
+  .btn-row{display:flex;gap:6px;margin-bottom:10px;flex-wrap:wrap;}
+  .hud-btn{background:#07151e;border:1px solid #0a3040;color:#00ffe7;font-family:'Share Tech Mono',monospace;font-size:9px;letter-spacing:1.5px;padding:8px 10px;cursor:pointer;text-transform:uppercase;clip-path:polygon(0 0,calc(100% - 5px) 0,100% 5px,100% 100%,0 100%);transition:background 0.15s;-webkit-tap-highlight-color:transparent;}
+  .hud-btn:active{background:#0a2030;}
+  .hud-btn.engaged{background:#001a30;border-color:#00ffe7;}
+  .log-section{background:#07151e;border:1px solid #0a3040;padding:8px 10px;}
+  .log-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;}
+  .log-lbl{font-size:8px;letter-spacing:2px;color:#0a5060;text-transform:uppercase;}
+  .log-count{font-size:8px;color:#0a4050;letter-spacing:1px;}
+  .log-table{width:100%;border-collapse:collapse;font-size:9px;letter-spacing:1px;}
+  .log-table th{color:#0a5060;text-align:left;padding:3px 5px;border-bottom:1px solid #0a2030;font-weight:400;font-size:8px;}
+  .log-table td{color:#00ffe7;padding:3px 5px;border-bottom:1px solid #081820;}
+  .log-table tr:last-child td{border-bottom:none;}
+  .log-scroll{max-height:160px;overflow-y:auto;}
+  .pill{font-size:8px;padding:1px 5px;letter-spacing:1px;border:1px solid;}
+  .pill-q{color:#00ffe7;border-color:#00ffe7;}.pill-m{color:#f0a500;border-color:#f0a500;}
+  .pill-l{color:#ff6030;border-color:#ff6030;}.pill-x{color:#ff3040;border-color:#ff3040;}
+  .gate{padding:60px 20px;text-align:center;}
+  .gate-icon{font-size:56px;margin-bottom:20px;color:#0a3040;}
+  .gate-text{font-size:11px;color:#0a5060;letter-spacing:2px;text-transform:uppercase;line-height:2;margin-bottom:24px;}
+  .corner{position:absolute;width:10px;height:10px;}
+  .corner-tl{top:0;left:0;border-top:1px solid #00ffe7;border-left:1px solid #00ffe7;}
+  .corner-tr{top:0;right:0;border-top:1px solid #00ffe7;border-right:1px solid #00ffe7;}
+  .corner-bl{bottom:0;left:0;border-bottom:1px solid #00ffe7;border-left:1px solid #00ffe7;}
+  .corner-br{bottom:0;right:0;border-bottom:1px solid #00ffe7;border-right:1px solid #00ffe7;}
+  .ticker{overflow:hidden;white-space:nowrap;font-size:8px;color:#0a4050;letter-spacing:2px;margin-bottom:12px;border-top:1px solid #0a2030;border-bottom:1px solid #0a2030;padding:3px 0;}
+  .ticker-inner{display:inline-block;animation:ticker 20s linear infinite;}
+  @keyframes ticker{0%{transform:translateX(100%)}100%{transform:translateX(-100%)}}
+</style>
+</head>
+<body>
+<div class="nw-root">
+  <div class="corner-tl"></div><div class="corner-tr"></div>
+  <div class="corner-bl"></div><div class="corner-br"></div>
+  <div class="nw-inner">
+    <div class="hud-header">
+      <div class="hud-title">NOISEWATCH-7 // acoustic monitor</div>
+      <div class="hud-status" id="sys-status">SYS: STANDBY</div>
+    </div>
+    <div class="ticker"><span class="ticker-inner">ACOUSTIC SENSOR ARRAY READY &nbsp;&nbsp;///&nbsp;&nbsp; AWAITING MICROPHONE AUTHORISATION &nbsp;&nbsp;///&nbsp;&nbsp; ALL SUBSYSTEMS NOMINAL &nbsp;&nbsp;///&nbsp;&nbsp; AMBIENT THREAT LEVEL: UNCLASSIFIED &nbsp;&nbsp;///&nbsp;&nbsp;</span></div>
+
+    <div id="gate-panel" class="gate">
+      <div class="gate-icon">◎</div>
+      <div class="gate-text">AUTHORISE ACOUSTIC SENSOR ARRAY<br>TO BEGIN AMBIENT NOISE MONITORING</div>
+      <button class="hud-btn" id="start-btn">▶ &nbsp;INITIALISE</button>
+    </div>
+
+    <div id="main-panel" style="display:none;">
+      <div class="btn-row">
+        <button class="hud-btn engaged" id="toggle-btn">⏸ &nbsp;SUSPEND</button>
+        <button class="hud-btn" id="log-btn">⊡ &nbsp;LOG</button>
+        <button class="hud-btn" id="clear-btn">✕ &nbsp;PURGE</button>
+      </div>
+
+      <!-- 3+2 metric layout for narrow screens -->
+      <div class="metric-row">
+        <div class="metric-box m-cyan"><div class="metric-lbl">CURRENT</div><div class="metric-val" id="cur-db">--</div><div class="metric-unit">dB SPL</div></div>
+        <div class="metric-box m-violet"><div class="metric-lbl">AVG</div><div class="metric-val" id="avg-db">--</div><div class="metric-unit">dB SPL</div></div>
+        <div class="metric-box m-green"><div class="metric-lbl">MIN</div><div class="metric-val" id="min-db">--</div><div class="metric-unit">dB SPL</div></div>
+      </div>
+      <div class="metric-row-2">
+        <div class="metric-box m-red"><div class="metric-lbl">PEAK</div><div class="metric-val" id="max-db">--</div><div class="metric-unit">dB SPL</div></div>
+        <div class="metric-box m-magenta"><div class="metric-lbl">DOMINANT</div><div class="metric-val" id="dom-freq" style="font-size:16px;">--</div><div class="metric-unit" id="dom-unit">Hz</div></div>
+      </div>
+
+      <div class="level-section">
+        <div class="level-header">ACOUSTIC THREAT LEVEL</div>
+        <div class="level-track"><div class="level-segs" id="seg-row"></div></div>
+        <div class="level-scale"><span>0</span><span>25</span><span>50</span><span>75</span><span>100 dB</span></div>
+      </div>
+
+      <div class="visual-section">
+        <div class="radar-wrap">
+          <canvas id="radar-canvas" width="64" height="64"></canvas>
+        </div>
+        <div class="equiv-info">
+          <div class="equiv-class">ACOUSTIC CLASSIFICATION</div>
+          <div class="equiv-name" id="equiv-name">INITIALISING...</div>
+        </div>
+        <div class="db-readout" id="big-db">--<br><span>dBSPL</span></div>
+      </div>
+
+      <div class="viz-grid">
+        <div class="viz-cell">
+          <div class="viz-lbl">WAVEFORM</div>
+          <canvas id="wave-canvas" class="viz-canvas" height="80"></canvas>
+        </div>
+        <div class="viz-cell">
+          <div class="viz-lbl">SPECTRUM</div>
+          <canvas id="spec-canvas" class="viz-canvas" height="80"></canvas>
+          <div class="freq-axis"><span>20Hz</span><span>1kHz</span><span>20kHz</span></div>
+        </div>
+        <div class="viz-cell">
+          <div class="viz-lbl">OSCILLOSCOPE</div>
+          <canvas id="scope-canvas" class="viz-canvas" height="80"></canvas>
+        </div>
+        <div class="viz-cell">
+          <div class="viz-lbl">SPECTROGRAM</div>
+          <canvas id="spectro-canvas" class="viz-canvas" height="80"></canvas>
+          <div class="freq-axis"><span>20kHz↑</span><span>↓20Hz</span></div>
+        </div>
+      </div>
+
+      <div class="log-section">
+        <div class="log-header">
+          <div class="log-lbl">INCIDENT LOG</div>
+          <div class="log-count" id="log-count">0 RECORDS</div>
+        </div>
+        <div class="log-scroll">
+          <table class="log-table">
+            <thead><tr><th>TIME</th><th>AVG</th><th>PEAK</th><th>CLASS</th></tr></thead>
+            <tbody id="log-body"><tr><td colspan="4" style="color:#0a4050;padding:10px 5px;letter-spacing:1px;">NO INCIDENTS LOGGED</td></tr></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+const STORE_KEY='nw7_log_v1';
+const SEG_COUNT=32;
+const SPEC_BARS=64;
+
+const equivs=[
+  {max:20,name:'SILENCE / ANECHOIC'},
+  {max:30,name:'NEAR SILENCE'},
+  {max:40,name:'QUIET ENVIRONMENT'},
+  {max:50,name:'SUBDUED ENVIRONMENT'},
+  {max:60,name:'SPEECH NOMINAL'},
+  {max:70,name:'ELEVATED ACTIVITY'},
+  {max:80,name:'HIGH AMPLITUDE'},
+  {max:90,name:'HAZARD ZONE'},
+  {max:100,name:'CRITICAL LEVEL'},
+  {max:999,name:'EXTREME THREAT'},
+];
+
+function levelPill(db){
+  if(db<45)return'<span class="pill pill-q">QUIET</span>';
+  if(db<65)return'<span class="pill pill-m">MODERATE</span>';
+  if(db<80)return'<span class="pill pill-l">HIGH</span>';
+  return'<span class="pill pill-x">CRITICAL</span>';
+}
+function saveLog(d){try{localStorage.setItem(STORE_KEY,JSON.stringify(d));}catch(e){}}
+function loadLog(){try{const v=localStorage.getItem(STORE_KEY);return v?JSON.parse(v):[];}catch(e){return[];}}
+function fmtShort(ts){return new Date(ts).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'});}
+
+function thermalRGB(val){
+  const stops=[[0,[5,13,18]],[0.15,[70,0,120]],[0.35,[200,0,30]],[0.55,[255,100,0]],[0.75,[255,230,0]],[1,[255,255,255]]];
+  let i=0;while(i<stops.length-2&&val>stops[i+1][0])i++;
+  const[t0,[r0,g0,b0]]=stops[i],[t1,[r1,g1,b1]]=stops[i+1];
+  const t=Math.max(0,Math.min(1,(val-t0)/(t1-t0)));
+  return[Math.round(r0+t*(r1-r0)),Math.round(g0+t*(g1-g0)),Math.round(b0+t*(b1-b0))];
+}
+
+let running=false,audioCtx,analyser,micStream;
+let samples=[],liveData=[];
+let log=loadLog();
+let radarAngle=0;
+let waveCtx,radarCtx,specCtx,scopeCtx,spectroCtx;
+let spectroReady=false,spectroW=0;
+let autoTimer=null;
+let peakHold=new Array(SPEC_BARS).fill(0);
+
+function buildSegs(){
+  const row=document.getElementById('seg-row');
+  row.innerHTML='';
+  for(let i=0;i<SEG_COUNT;i++){const s=document.createElement('div');s.className='seg';s.id='seg'+i;row.appendChild(s);}
+}
+function updateSegs(db){
+  const lit=Math.round((db/100)*SEG_COUNT);
+  for(let i=0;i<SEG_COUNT;i++){
+    const s=document.getElementById('seg'+i);if(!s)continue;
+    if(i<lit){
+      if(i<SEG_COUNT*0.35)s.className='seg lit-green';
+      else if(i<SEG_COUNT*0.55)s.className='seg lit-lime';
+      else if(i<SEG_COUNT*0.75)s.className='seg lit-amber';
+      else s.className='seg lit-red';
+    }else s.className='seg';
+  }
+}
+
+function drawRadar(db){
+  const c=radarCtx,cx=32,cy=32,R=30,W=64;
+  c.clearRect(0,0,W,W);c.fillStyle='#07151e';c.fillRect(0,0,W,W);
+  [R,R*0.65,R*0.35].forEach(r=>{c.beginPath();c.arc(cx,cy,r,0,Math.PI*2);c.strokeStyle='#0a3040';c.lineWidth=0.5;c.stroke();});
+  c.beginPath();c.moveTo(cx-R,cy);c.lineTo(cx+R,cy);c.strokeStyle='#0a3040';c.lineWidth=0.5;c.stroke();
+  c.beginPath();c.moveTo(cx,cy-R);c.lineTo(cx,cy+R);c.strokeStyle='#0a3040';c.lineWidth=0.5;c.stroke();
+  const sweep=Math.PI*2*0.18;
+  c.beginPath();c.moveTo(cx,cy);c.arc(cx,cy,R,radarAngle-sweep,radarAngle);c.closePath();
+  c.fillStyle='rgba(176,96,255,0.15)';c.fill();
+  const blobR=Math.min(R,(db/100)*R);
+  c.beginPath();c.arc(cx,cy,blobR,0,Math.PI*2);c.fillStyle='rgba(0,255,136,0.1)';c.fill();
+  c.beginPath();c.arc(cx,cy,2.5,0,Math.PI*2);c.fillStyle='#b060ff';c.fill();
+  const ex=cx+R*Math.cos(radarAngle),ey=cy+R*Math.sin(radarAngle);
+  c.beginPath();c.moveTo(cx,cy);c.lineTo(ex,ey);c.strokeStyle='#b060ff';c.lineWidth=1;c.stroke();
+  const blipCount=Math.floor(db/25);
+  for(let i=0;i<blipCount;i++){
+    const a=radarAngle-(i+1)*(sweep/(blipCount+1)),r=4+Math.random()*22;
+    c.beginPath();c.arc(cx+r*Math.cos(a),cy+r*Math.sin(a),1,0,Math.PI*2);
+    c.fillStyle=`rgba(0,255,136,${0.7-i*0.15})`;c.fill();
+  }
+  radarAngle=(radarAngle+0.04)%(Math.PI*2);
+}
+
+function drawWave(){
+  const canvas=document.getElementById('wave-canvas');
+  if(!canvas||!waveCtx)return;
+  const W=canvas.offsetWidth;if(!W)return;
+  const H=80;if(canvas.width!==W)canvas.width=W;
+  const c=waveCtx;
+  c.fillStyle='#07151e';c.fillRect(0,0,W,H);
+  [[25,'#0c2535'],[50,'#0d2030'],[75,'#0c2535']].forEach(([db,col])=>{
+    const y=H-(db/100)*H;
+    c.beginPath();c.moveTo(0,y);c.lineTo(W,y);c.strokeStyle=col;c.lineWidth=0.5;c.stroke();
+  });
+  if(liveData.length<2)return;
+  const pts=60,padded=Array(Math.max(0,pts-liveData.length)).fill(null).concat(liveData.slice(-pts));
+  const grad=c.createLinearGradient(0,0,W,0);
+  grad.addColorStop(0,'rgba(0,255,231,0.3)');grad.addColorStop(0.6,'#00ffe7');grad.addColorStop(1,'#ff40cc');
+  c.beginPath();
+  let started=false,lastX=0;
+  padded.forEach((v,i)=>{
+    if(v===null)return;
+    const x=(i/(pts-1))*W,y=H-(v/100)*H;
+    if(!started){c.moveTo(x,y);started=true;}else c.lineTo(x,y);
+    lastX=x;
+  });
+  c.strokeStyle=grad;c.lineWidth=1.5;c.stroke();
+  c.lineTo(lastX,H);c.lineTo(0,H);c.closePath();
+  const fill=c.createLinearGradient(0,0,0,H);
+  fill.addColorStop(0,'rgba(255,64,204,0.15)');fill.addColorStop(1,'rgba(0,255,231,0.03)');
+  c.fillStyle=fill;c.fill();
+}
+
+function drawSpectrum(){
+  const canvas=document.getElementById('spec-canvas');
+  if(!canvas||!specCtx)return;
+  const W=canvas.offsetWidth;if(!W)return;
+  const H=80;if(canvas.width!==W)canvas.width=W;
+  const c=specCtx;
+  c.fillStyle='#07151e';c.fillRect(0,0,W,H);
+  const freqData=new Uint8Array(analyser.frequencyBinCount);
+  analyser.getByteFrequencyData(freqData);
+  const nyquist=audioCtx.sampleRate/2,minF=20,maxF=Math.min(20000,nyquist),logRange=Math.log(maxF/minF);
+  const bw=Math.max(1,W/SPEC_BARS-1);
+  for(let i=0;i<SPEC_BARS;i++){
+    const f0=minF*Math.exp(logRange*(i/SPEC_BARS)),f1=minF*Math.exp(logRange*((i+1)/SPEC_BARS));
+    const b0=Math.max(1,Math.round(f0*analyser.fftSize/audioCtx.sampleRate));
+    const b1=Math.min(freqData.length-1,Math.round(f1*analyser.fftSize/audioCtx.sampleRate));
+    let mx=0;for(let b=b0;b<=b1;b++)if(freqData[b]>mx)mx=freqData[b];
+    const ratio=mx/255,barH=ratio*H,x=(i/SPEC_BARS)*W;
+    const hue=Math.round((i/SPEC_BARS)*300),sat=70+ratio*30,light=Math.max(5,15+ratio*55);
+    c.fillStyle=`hsl(${hue},${sat}%,${light}%)`;c.fillRect(x,H-barH,bw,barH);
+    if(barH>peakHold[i])peakHold[i]=barH;else peakHold[i]=Math.max(0,peakHold[i]-0.5);
+    if(peakHold[i]>2){c.fillStyle=`hsla(${hue},100%,75%,0.9)`;c.fillRect(x,H-peakHold[i]-1,bw,1);}
+  }
+}
+
+function drawScope(){
+  const canvas=document.getElementById('scope-canvas');
+  if(!canvas||!scopeCtx)return;
+  const W=canvas.offsetWidth;if(!W)return;
+  const H=80;if(canvas.width!==W)canvas.width=W;
+  const c=scopeCtx;
+  c.fillStyle='#07151e';c.fillRect(0,0,W,H);
+  c.beginPath();c.moveTo(0,H/2);c.lineTo(W,H/2);c.strokeStyle='#0a2030';c.lineWidth=0.5;c.stroke();
+  const timeData=new Uint8Array(analyser.fftSize);
+  analyser.getByteTimeDomainData(timeData);
+  let start=0;
+  for(let i=1;i<timeData.length/2;i++){if(timeData[i-1]<128&&timeData[i]>=128){start=i;break;}}
+  const n=Math.min(2048,timeData.length-start);
+  const grad=c.createLinearGradient(0,0,W,0);
+  grad.addColorStop(0,'#00ffe7');grad.addColorStop(0.5,'#00ff88');grad.addColorStop(1,'#ff40cc');
+  c.beginPath();
+  for(let i=0;i<n;i++){
+    const v=(timeData[start+i]/128.0)-1,x=(i/n)*W,y=H/2+v*(H/2-4);
+    i===0?c.moveTo(x,y):c.lineTo(x,y);
+  }
+  c.strokeStyle=grad;c.lineWidth=1.5;c.stroke();
+}
+
+function drawSpectrogram(){
+  const canvas=document.getElementById('spectro-canvas');
+  if(!canvas)return;
+  const W=canvas.offsetWidth;if(!W)return;
+  const H=80;
+  if(!spectroReady||spectroW!==W){
+    canvas.width=W;canvas.height=H;
+    spectroCtx=canvas.getContext('2d');
+    spectroCtx.fillStyle='#07151e';spectroCtx.fillRect(0,0,W,H);
+    spectroReady=true;spectroW=W;
+  }
+  spectroCtx.drawImage(canvas,-1,0);
+  const freqData=new Uint8Array(analyser.frequencyBinCount);
+  analyser.getByteFrequencyData(freqData);
+  const nyquist=audioCtx.sampleRate/2,minF=20,maxF=Math.min(20000,nyquist),logRange=Math.log(maxF/minF);
+  const imgData=spectroCtx.createImageData(1,H);
+  const d=imgData.data;
+  for(let y=0;y<H;y++){
+    const ratio=(H-1-y)/H,freq=minF*Math.exp(logRange*ratio);
+    const bin=Math.round(freq*analyser.fftSize/audioCtx.sampleRate);
+    const val=bin<freqData.length?freqData[bin]/255:0;
+    const[r,g,b]=thermalRGB(val);
+    const idx=y*4;d[idx]=r;d[idx+1]=g;d[idx+2]=b;d[idx+3]=255;
+  }
+  spectroCtx.putImageData(imgData,W-1,0);
+}
+
+function getDominantFreq(){
+  if(!analyser||!audioCtx)return 0;
+  const freqData=new Uint8Array(analyser.frequencyBinCount);
+  analyser.getByteFrequencyData(freqData);
+  let mx=0,mxBin=0;
+  for(let i=2;i<freqData.length;i++)if(freqData[i]>mx){mx=freqData[i];mxBin=i;}
+  if(mx<20)return 0;
+  return Math.round(mxBin*audioCtx.sampleRate/analyser.fftSize);
+}
+
+function updateUI(db){
+  const r=Math.round(db);
+  document.getElementById('cur-db').textContent=r;
+  document.getElementById('big-db').innerHTML=r+'<br><span>dBSPL</span>';
+  updateSegs(db);
+  samples.push(db);
+  const avg=Math.round(samples.reduce((a,b)=>a+b,0)/samples.length);
+  const mn=Math.round(Math.min(...samples)),mx=Math.round(Math.max(...samples));
+  document.getElementById('avg-db').textContent=avg;
+  document.getElementById('min-db').textContent=mn;
+  document.getElementById('max-db').textContent=mx;
+  const eq=equivs.find(e=>db<=e.max)||equivs[equivs.length-1];
+  document.getElementById('equiv-name').textContent=eq.name;
+  liveData.push(db);if(liveData.length>60)liveData.shift();
+  const domF=getDominantFreq();
+  const domEl=document.getElementById('dom-freq'),unitEl=document.getElementById('dom-unit');
+  if(domF>0){domEl.textContent=domF>=1000?(domF/1000).toFixed(1)+'k':domF;unitEl.textContent=domF>=1000?'kHz':'Hz';}
+  else{domEl.textContent='--';unitEl.textContent='Hz';}
+  drawRadar(db);drawWave();drawSpectrum();drawScope();drawSpectrogram();
+}
+
+function renderLog(){
+  const b=document.getElementById('log-body');
+  document.getElementById('log-count').textContent=log.length+' RECORD'+(log.length!==1?'S':'');
+  if(!log.length){b.innerHTML='<tr><td colspan="4" style="color:#0a4050;padding:10px 5px;letter-spacing:1px;">NO INCIDENTS LOGGED</td></tr>';return;}
+  b.innerHTML=[...log].reverse().map(e=>`<tr><td style="color:#0a6070;font-size:8px;">${fmtShort(e.ts)}</td><td>${e.avg}</td><td>${e.max}</td><td>${levelPill(e.avg)}</td></tr>`).join('');
+}
+
+function saveSnap(auto){
+  if(!samples.length)return;
+  const avg=Math.round(samples.reduce((a,b)=>a+b,0)/samples.length);
+  const mn=Math.round(Math.min(...samples)),mx=Math.round(Math.max(...samples));
+  log.push({ts:Date.now(),avg,min:mn,max:mx,auto:!!auto});
+  if(log.length>500)log=log.slice(-500);
+  saveLog(log);renderLog();samples=[];
+}
+
+function dbFromAnalyser(){
+  const buf=new Float32Array(analyser.fftSize);
+  analyser.getFloatTimeDomainData(buf);
+  let rms=0;for(let i=0;i<buf.length;i++)rms+=buf[i]*buf[i];
+  rms=Math.sqrt(rms/buf.length);
+  return rms===0?0:Math.max(0,20*Math.log10(rms)+90);
+}
+
+let rafId;
+function loop(){if(!running)return;updateUI(dbFromAnalyser());rafId=requestAnimationFrame(loop);}
+
+async function startMic(){
+  try{
+    micStream=await navigator.mediaDevices.getUserMedia({audio:true,video:false});
+    audioCtx=new(window.AudioContext||window.webkitAudioContext)();
+    analyser=audioCtx.createAnalyser();
+    analyser.fftSize=2048;analyser.smoothingTimeConstant=0.8;
+    audioCtx.createMediaStreamSource(micStream).connect(analyser);
+    running=true;
+    document.getElementById('gate-panel').style.display='none';
+    document.getElementById('main-panel').style.display='block';
+    document.getElementById('sys-status').textContent='SYS: ONLINE';
+    document.getElementById('sys-status').classList.add('active');
+    const init=(id,h)=>{const cv=document.getElementById(id);cv.width=cv.offsetWidth||300;cv.height=h;return cv.getContext('2d');};
+    waveCtx=init('wave-canvas',80);specCtx=init('spec-canvas',80);scopeCtx=init('scope-canvas',80);
+    radarCtx=document.getElementById('radar-canvas').getContext('2d');
+    buildSegs();renderLog();loop();
+    autoTimer=setInterval(()=>saveSnap(true),5*60*1000);
+  }catch(e){alert('Mic access denied: '+e.message);}
+}
+
+document.getElementById('start-btn').addEventListener('click',startMic);
+document.getElementById('toggle-btn').addEventListener('click',()=>{
+  running=!running;
+  const b=document.getElementById('toggle-btn');
+  if(running){b.innerHTML='⏸ &nbsp;SUSPEND';b.classList.add('engaged');loop();}
+  else{b.innerHTML='▶ &nbsp;RESUME';b.classList.remove('engaged');cancelAnimationFrame(rafId);}
+});
+document.getElementById('log-btn').addEventListener('click',()=>saveSnap(false));
+document.getElementById('clear-btn').addEventListener('click',()=>{if(!confirm('PURGE ALL LOG ENTRIES?'))return;log=[];saveLog(log);renderLog();});
+</script>
+</body>
+</html>

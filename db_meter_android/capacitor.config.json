@@ -1,0 +1,9 @@
+{
+  "appId": "com.fdawes1.noisewatch7",
+  "appName": "NoiseWatch-7",
+  "webDir": "www",
+  "android": {
+    "allowMixedContent": false,
+    "backgroundColor": "#050d12"
+  }
+}
