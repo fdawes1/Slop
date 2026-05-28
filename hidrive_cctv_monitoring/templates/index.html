@@ -328,9 +328,10 @@
     }
     .action-btns button:hover  { filter: brightness(1.1); box-shadow: 0 4px 10px rgba(0,0,0,0.2); }
     .action-btns button:active { transform: scale(0.94); }
-    .btn-good  { background: #16a34a; color: #fff; }
-    .btn-bad   { background: #dc2626; color: #fff; }
-    .btn-issue { background: #d97706; color: #fff; }
+    .btn-good   { background: #16a34a; color: #fff; }
+    .btn-bad    { background: #dc2626; color: #fff; }
+    .btn-issue  { background: #d97706; color: #fff; }
+    .btn-reject { background: #7c3aed; color: #fff; }
     .key { font-size: 0.62rem; font-weight: 400; opacity: 0.55; }
 
     /* ── Event log ───────────────────────────────────────────────── */
@@ -360,12 +361,14 @@
       font-family: 'Albert Sans', sans-serif;
     }
     .event-log tbody tr:hover td { background: var(--bg-surface); }
-    .s-good  { color: #16a34a; font-weight: 700; }
-    .s-bad   { color: #dc2626; font-weight: 700; }
-    .s-issue { color: #d97706; font-weight: 700; }
-    [data-theme="dark"] .s-good  { color: #4ade80; }
-    [data-theme="dark"] .s-bad   { color: #f87171; }
-    [data-theme="dark"] .s-issue { color: #fbbf24; }
+    .s-good   { color: #16a34a; font-weight: 700; }
+    .s-bad    { color: #dc2626; font-weight: 700; }
+    .s-issue  { color: #d97706; font-weight: 700; }
+    .s-reject { color: #7c3aed; font-weight: 700; }
+    [data-theme="dark"] .s-good   { color: #4ade80; }
+    [data-theme="dark"] .s-bad    { color: #f87171; }
+    [data-theme="dark"] .s-issue  { color: #fbbf24; }
+    [data-theme="dark"] .s-reject { color: #a78bfa; }
 
     /* ── Scrollbar ───────────────────────────────────────────────── */
     ::-webkit-scrollbar { width: 5px; }
@@ -373,12 +376,14 @@
     ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
 
     /* ── Flash animations ────────────────────────────────────────── */
-    @keyframes flash-good  { 0%,100%{background:#16a34a} 50%{background:#22c55e} }
-    @keyframes flash-bad   { 0%,100%{background:#dc2626} 50%{background:#ef4444} }
-    @keyframes flash-issue { 0%,100%{background:#d97706} 50%{background:#f59e0b} }
-    .flash-good  { animation: flash-good  0.18s ease; }
-    .flash-bad   { animation: flash-bad   0.18s ease; }
-    .flash-issue { animation: flash-issue 0.18s ease; }
+    @keyframes flash-good   { 0%,100%{background:#16a34a} 50%{background:#22c55e} }
+    @keyframes flash-bad    { 0%,100%{background:#dc2626} 50%{background:#ef4444} }
+    @keyframes flash-issue  { 0%,100%{background:#d97706} 50%{background:#f59e0b} }
+    @keyframes flash-reject { 0%,100%{background:#7c3aed} 50%{background:#8b5cf6} }
+    .flash-good   { animation: flash-good   0.18s ease; }
+    .flash-bad    { animation: flash-bad    0.18s ease; }
+    .flash-issue  { animation: flash-issue  0.18s ease; }
+    .flash-reject { animation: flash-reject 0.18s ease; }
   </style>
 </head>
 <body>
@@ -458,6 +463,9 @@
           </button>
           <button class="btn-issue" id="btn-issue" onclick="logEvent('Issue')">
             Issue <span class="key">[I]</span>
+          </button>
+          <button class="btn-reject" id="btn-reject" onclick="logEvent('Reject')">
+            Reject <span class="key">[R]</span>
           </button>
         </div>
       </div>
@@ -799,7 +807,7 @@ function renderLog() {
 }
 
 function flashBtn(status) {
-  const map = { Good: 'btn-good', Bad: 'btn-bad', Issue: 'btn-issue' };
+  const map = { Good: 'btn-good', Bad: 'btn-bad', Issue: 'btn-issue', Reject: 'btn-reject' };
   const btn = document.getElementById(map[status]);
   if (!btn) return;
   const cls = `flash-${status.toLowerCase()}`;
@@ -820,9 +828,10 @@ document.addEventListener('keydown', e => {
   if (!sessionId) return;
   const p = activePlayer();
   switch (e.key.toLowerCase()) {
-    case 'g': logEvent('Good');  break;
-    case 'b': logEvent('Bad');   break;
-    case 'i': logEvent('Issue'); break;
+    case 'g': logEvent('Good');   break;
+    case 'b': logEvent('Bad');    break;
+    case 'i': logEvent('Issue');  break;
+    case 'r': logEvent('Reject'); break;
     case ' ':
       e.preventDefault();
       p.paused ? p.play() : p.pause();
