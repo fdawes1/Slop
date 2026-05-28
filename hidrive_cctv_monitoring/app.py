@@ -3,16 +3,18 @@ import json
 import os
 import re
 import uuid
+import xml.etree.ElementTree as ET
 from datetime import datetime
 from pathlib import Path
+from urllib.parse import unquote, quote
 
 import requests as req_lib
 from flask import Flask, request, jsonify, render_template, Response, send_file
 
 app = Flask(__name__)
 
-HIDRIVE_API   = "https://api.hidrive.strato.com/2.1"
-HIDRIVE_ROOT  = "/public"
+HIDRIVE_WEBDAV = "https://webdav.hidrive.strato.com"
+HIDRIVE_ROOT   = "/public"
 LOCAL_ROOT    = Path("/mnt/hidrive/public")
 LOGS_DIR      = Path(__file__).parent / "logs"
 SESSIONS_FILE = Path(__file__).parent / "sessions.json"
@@ -130,49 +132,54 @@ class HiDriveProvider:
         self.auth = (username, password)
         self.root = root.rstrip("/")
 
-    def _dir(self, path, **params):
-        r = req_lib.get(
-            f"{HIDRIVE_API}/dir",
-            auth=self.auth,
-            params={"path": path, **params},
+    def _propfind(self, path):
+        """Return list of (name, is_dir) for the children of path."""
+        url = f"{HIDRIVE_WEBDAV}{quote(path, safe='/')}"
+        r = req_lib.request(
+            "PROPFIND", url, auth=self.auth,
+            headers={"Depth": "1", "Content-Type": "application/xml"},
             timeout=15,
         )
         r.raise_for_status()
-        return r.json()
+        ns   = {"D": "DAV:"}
+        tree = ET.fromstring(r.content)
+        out  = []
+        for resp in tree.findall("D:response", ns)[1:]:  # skip the dir itself
+            href   = unquote(resp.find("D:href", ns).text)
+            name   = href.rstrip("/").split("/")[-1]
+            is_dir = resp.find(".//D:collection", ns) is not None
+            out.append((name, is_dir))
+        return out
 
     def list_units(self):
-        data = self._dir(self.root, fields="members.name,members.type")
-        return sorted(
-            m["name"] for m in data.get("members", [])
-            if m["type"] == "dir" and re.match(r"PikPak", m["name"])
-        )
+        entries = self._propfind(f"{self.root}/")
+        return sorted(name for name, is_dir in entries
+                      if is_dir and re.match(r"PikPak", name))
 
     def list_dates(self, unit):
-        dates = []
+        dates     = []
         unit_path = f"{self.root}/{unit}"
         try:
-            years = self._dir(unit_path, fields="members.name,members.type").get("members", [])
+            years = self._propfind(f"{unit_path}/")
         except Exception:
             return []
-        for yr in years:
-            if yr["type"] != "dir" or not yr["name"].isdigit():
+        for yr, is_dir in years:
+            if not is_dir or not yr.isdigit():
                 continue
-            year_path = f"{unit_path}/{yr['name']}"
             try:
-                months = self._dir(year_path, fields="members.name,members.type").get("members", [])
+                months = self._propfind(f"{unit_path}/{yr}/")
             except Exception:
                 continue
-            for mo in months:
-                if mo["type"] != "dir":
+            for mo, is_dir2 in months:
+                if not is_dir2:
                     continue
-                month_path = f"{year_path}/{mo['name']}"
                 try:
-                    days = self._dir(month_path, fields="members.name,members.type").get("members", [])
+                    days = self._propfind(f"{unit_path}/{yr}/{mo}/")
                 except Exception:
                     continue
-                for day in days:
-                    if day["type"] == "dir":
-                        dates.append(f"{yr['name']}-{mo['name']}-{day['name']}")
+                for day, is_dir3 in days:
+                    if is_dir3:
+                        dates.append(f"{yr}-{mo}-{day}")
         return sorted(dates)
 
     def list_videos(self, unit, date):
@@ -182,39 +189,33 @@ class HiDriveProvider:
         year, month, day = parts
         path = f"{self.root}/{unit}/{year}/{month}/{day}"
         try:
-            data = self._dir(path, fields="members.name,members.type")
+            entries = self._propfind(f"{path}/")
         except Exception:
             return []
         videos = []
-        for m in sorted(data.get("members", []), key=lambda x: x["name"]):
-            if not m["name"].lower().endswith(".mp4"):
+        for name, is_dir in sorted(entries):
+            if is_dir or not name.lower().endswith(".mp4"):
                 continue
-            ts_m = re.search(r"(\d{14})", m["name"])
+            ts_m = re.search(r"(\d{14})", name)
             if ts_m:
                 ts = datetime.strptime(ts_m.group(1), "%Y%m%d%H%M%S")
                 videos.append({
-                    "filename": m["name"],
-                    "label":    ts.strftime("%H:%M:%S"),
-                    "path":     f"{unit}/{year}/{month}/{day}/{m['name']}",
+                    "filename":  name,
+                    "label":     ts.strftime("%H:%M:%S"),
+                    "path":      f"{unit}/{year}/{month}/{day}/{name}",
                     "start_iso": ts.isoformat(),
                 })
         return videos
 
     def serve_video(self, video_path):
-        path = f"{self.root}/{video_path}"
+        url = f"{HIDRIVE_WEBDAV}{quote(f'{self.root}/{video_path}', safe='/')}"
         hd_headers = {}
         range_header = request.headers.get("Range")
         if range_header:
             hd_headers["Range"] = range_header
         try:
-            r = req_lib.get(
-                f"{HIDRIVE_API}/file",
-                auth=self.auth,
-                params={"path": path},
-                headers=hd_headers,
-                stream=True,
-                timeout=30,
-            )
+            r = req_lib.get(url, auth=self.auth, headers=hd_headers,
+                            stream=True, timeout=30)
             r.raise_for_status()
         except Exception:
             return "Failed to fetch from HiDrive", 502
