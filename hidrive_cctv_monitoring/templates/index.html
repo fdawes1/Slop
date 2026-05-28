@@ -109,6 +109,36 @@
       transition: border-color var(--transition);
     }
     .modal-box input:focus { border-color: var(--accent); }
+    .source-toggle {
+      display: flex; gap: 0.35rem;
+      background: var(--bg-base);
+      padding: 0.22rem;
+      border-radius: var(--radius);
+      margin-bottom: 1.1rem;
+    }
+    .src-btn {
+      flex: 1; padding: 0.42rem 0;
+      background: transparent; border: none;
+      border-radius: calc(var(--radius) - 3px);
+      font-family: 'Poppins', sans-serif;
+      font-size: 0.78rem; font-weight: 700;
+      color: var(--text-3); cursor: pointer;
+      transition: background var(--transition), color var(--transition);
+    }
+    .src-btn.active { background: var(--accent); color: #fff; }
+    .src-btn:not(.active):hover { color: var(--accent); }
+
+    #hidrive-fields { display: none; }
+
+    .modal-error {
+      margin-top: 0.7rem;
+      padding: 0.45rem 0.75rem;
+      background: rgba(220,38,38,0.08);
+      border: 1px solid rgba(220,38,38,0.25);
+      border-radius: var(--radius);
+      font-size: 0.8rem; color: #dc2626; display: none;
+    }
+
     .modal-box button {
       width: 100%; padding: 0.75rem;
       background: var(--accent); color: #fff;
@@ -119,6 +149,7 @@
     }
     .modal-box button:hover  { background: var(--accent-h); }
     .modal-box button:active { transform: scale(0.97); }
+    .modal-box button:disabled { opacity: 0.6; cursor: default; }
 
     /* ── Header ──────────────────────────────────────────────────── */
     header {
@@ -431,8 +462,20 @@
     </div>
     <h2>Sign in to start</h2>
     <p>Your events will be saved to a persistent log file.</p>
+
+    <div class="source-toggle">
+      <button class="src-btn active" id="src-local"    onclick="setSource('local')">Local mount</button>
+      <button class="src-btn"        id="src-hidrive"  onclick="setSource('hidrive')">HiDrive Online</button>
+    </div>
+
+    <div id="hidrive-fields">
+      <input id="hd-user" type="text"     placeholder="HiDrive username">
+      <input id="hd-pass" type="password" placeholder="HiDrive password">
+    </div>
+
     <input id="operator-input" type="text" placeholder="Your name" autofocus>
-    <button onclick="startSession()">Start Session</button>
+    <button id="modal-start-btn" onclick="startSession()">Start Session</button>
+    <div id="modal-error" class="modal-error"></div>
   </div>
 </div>
 
@@ -530,8 +573,9 @@
 
 <script>
 // ── State ──────────────────────────────────────────────────────────────────
-let sessionId   = null;
-let operator    = null;
+let sessionId    = null;
+let operator     = null;
+let currentSource = 'local';
 let unitVideos  = [];
 let currentIdx  = -1;
 let currentUnit = null;
@@ -609,9 +653,13 @@ function clearPersistedSession() {
 
 // ── Session restore on page load ───────────────────────────────────────────
 window.addEventListener('DOMContentLoaded', async () => {
+  // Restore source toggle preference
+  const savedSource = localStorage.getItem('cctv_source') || 'local';
+  setSource(savedSource);
+
   // Try localStorage first, fall back to cookies
-  let storedId  = null;
-  let storedOp  = null;
+  let storedId = null;
+  let storedOp = null;
 
   try {
     const ls = JSON.parse(localStorage.getItem('cctv_session') || 'null');
@@ -629,10 +677,9 @@ window.addEventListener('DOMContentLoaded', async () => {
       const data = await res.json();
       if (data.valid) {
         sessionId = storedId;
-        operator  = data.operator;  // always trust the server's copy
+        operator  = data.operator;
         await activateApp();
 
-        // Restore last position if available
         try {
           const pos = JSON.parse(localStorage.getItem('cctv_pos') || 'null');
           if (pos && pos.unit) await restorePosition(pos);
@@ -640,11 +687,11 @@ window.addEventListener('DOMContentLoaded', async () => {
         return;
       }
     } catch (_) {}
-    // Session invalid (server restarted and sessions.json missing?) — clear stale data
+    // Session invalid — clear stale data (HiDrive sessions always land here after server restart)
     clearPersistedSession();
   }
 
-  // No valid session: show the modal, pre-fill operator name if cookie has it
+  // No valid session: show modal, pre-fill what we know
   if (storedOp) document.getElementById('operator-input').value = storedOp;
 });
 
@@ -663,19 +710,56 @@ async function restorePosition({ unit, date, videoIdx }) {
   if (videoIdx >= 0 && videoIdx < unitVideos.length) loadVideoAt(videoIdx);
 }
 
+// ── Source selection ───────────────────────────────────────────────────────
+function setSource(source) {
+  currentSource = source;
+  document.getElementById('src-local').classList.toggle('active', source === 'local');
+  document.getElementById('src-hidrive').classList.toggle('active', source === 'hidrive');
+  document.getElementById('hidrive-fields').style.display = source === 'hidrive' ? 'block' : 'none';
+  if (source === 'hidrive') {
+    document.getElementById('hd-user').focus();
+  } else {
+    document.getElementById('operator-input').focus();
+  }
+  localStorage.setItem('cctv_source', source);
+}
+
 // ── Session start (new login) ──────────────────────────────────────────────
 async function startSession() {
   const name = document.getElementById('operator-input').value.trim();
-  if (!name) return;
+  if (!name) { document.getElementById('operator-input').focus(); return; }
+
+  const body = { operator: name, source: currentSource };
+  if (currentSource === 'hidrive') {
+    body.hidrive_user = document.getElementById('hd-user').value.trim();
+    body.hidrive_pass = document.getElementById('hd-pass').value;
+    if (!body.hidrive_user) { document.getElementById('hd-user').focus(); return; }
+  }
+
+  const btn = document.getElementById('modal-start-btn');
+  const err = document.getElementById('modal-error');
+  btn.textContent = 'Connecting…';
+  btn.disabled    = true;
+  err.style.display = 'none';
 
   const res  = await fetch('/api/session', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ operator: name }),
+    body: JSON.stringify(body),
   });
   const data = await res.json();
-  sessionId  = data.session_id;
-  operator   = name;
+
+  btn.textContent = 'Start Session';
+  btn.disabled    = false;
+
+  if (!res.ok) {
+    err.textContent   = data.error || 'Connection failed';
+    err.style.display = 'block';
+    return;
+  }
+
+  sessionId = data.session_id;
+  operator  = name;
   persistSession();
   await activateApp();
 }

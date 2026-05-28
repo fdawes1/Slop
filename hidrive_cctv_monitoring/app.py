@@ -6,14 +6,232 @@ import uuid
 from datetime import datetime
 from pathlib import Path
 
+import requests as req_lib
 from flask import Flask, request, jsonify, render_template, Response, send_file
 
 app = Flask(__name__)
 
-HIDRIVE_ROOT  = Path("/mnt/hidrive/public")
+HIDRIVE_API   = "https://api.hidrive.strato.com/2.1"
+HIDRIVE_ROOT  = "/public"
+LOCAL_ROOT    = Path("/mnt/hidrive/public")
 LOGS_DIR      = Path(__file__).parent / "logs"
 SESSIONS_FILE = Path(__file__).parent / "sessions.json"
 LOGS_DIR.mkdir(exist_ok=True)
+
+
+# ---------------------------------------------------------------------------
+# Providers
+# ---------------------------------------------------------------------------
+
+class LocalProvider:
+    def list_units(self):
+        if not LOCAL_ROOT.is_dir():
+            return []
+        return sorted(
+            d for d in os.listdir(LOCAL_ROOT)
+            if re.match(r"PikPak", d) and (LOCAL_ROOT / d).is_dir()
+        )
+
+    def list_dates(self, unit):
+        unit_path = LOCAL_ROOT / unit
+        if not unit_path.is_dir():
+            return []
+        dates = []
+        for year in sorted(os.listdir(unit_path)):
+            if not year.isdigit():
+                continue
+            year_path = unit_path / year
+            if not year_path.is_dir():
+                continue
+            for month in sorted(os.listdir(year_path)):
+                month_path = year_path / month
+                if not month_path.is_dir():
+                    continue
+                for day in sorted(os.listdir(month_path)):
+                    if (month_path / day).is_dir():
+                        dates.append(f"{year}-{month}-{day}")
+        return dates
+
+    def list_videos(self, unit, date):
+        parts = date.split("-")
+        if len(parts) != 3:
+            return []
+        year, month, day = parts
+        folder = self._safe(f"{unit}/{year}/{month}/{day}")
+        if not folder or not folder.is_dir():
+            return []
+        videos = []
+        for f in sorted(os.listdir(folder)):
+            if f.lower().endswith(".mp4"):
+                m = re.search(r"(\d{14})", f)
+                if m:
+                    ts = datetime.strptime(m.group(1), "%Y%m%d%H%M%S")
+                    videos.append({
+                        "filename": f,
+                        "label": ts.strftime("%H:%M:%S"),
+                        "path": f"{unit}/{year}/{month}/{day}/{f}",
+                        "start_iso": ts.isoformat(),
+                    })
+        return videos
+
+    def serve_video(self, video_path):
+        full_path = self._safe(video_path)
+        if not full_path or not full_path.exists():
+            return "Not found", 404
+
+        file_size    = full_path.stat().st_size
+        range_header = request.headers.get("Range")
+
+        if not range_header:
+            resp = send_file(full_path, mimetype="video/mp4", conditional=True)
+            resp.headers["Accept-Ranges"] = "bytes"
+            return resp
+
+        m = re.match(r"bytes=(\d+)-(\d*)", range_header)
+        if not m:
+            return "Bad range", 400
+
+        start  = int(m.group(1))
+        end    = int(m.group(2)) if m.group(2) else file_size - 1
+        end    = min(end, file_size - 1)
+        length = end - start + 1
+
+        def generate():
+            with open(full_path, "rb") as f:
+                f.seek(start)
+                remaining = length
+                while remaining > 0:
+                    chunk = f.read(min(65536, remaining))
+                    if not chunk:
+                        break
+                    remaining -= len(chunk)
+                    yield chunk
+
+        return Response(
+            generate(),
+            status=206,
+            headers={
+                "Content-Range":  f"bytes {start}-{end}/{file_size}",
+                "Accept-Ranges":  "bytes",
+                "Content-Length": str(length),
+                "Content-Type":   "video/mp4",
+            },
+        )
+
+    def _safe(self, rel):
+        resolved = (LOCAL_ROOT / rel).resolve()
+        if not str(resolved).startswith(str(LOCAL_ROOT.resolve())):
+            return None
+        return resolved
+
+
+class HiDriveProvider:
+    def __init__(self, username, password, root=HIDRIVE_ROOT):
+        self.auth = (username, password)
+        self.root = root.rstrip("/")
+
+    def _dir(self, path, **params):
+        r = req_lib.get(
+            f"{HIDRIVE_API}/dir",
+            auth=self.auth,
+            params={"path": path, **params},
+            timeout=15,
+        )
+        r.raise_for_status()
+        return r.json()
+
+    def list_units(self):
+        data = self._dir(self.root, fields="members.name,members.type")
+        return sorted(
+            m["name"] for m in data.get("members", [])
+            if m["type"] == "dir" and re.match(r"PikPak", m["name"])
+        )
+
+    def list_dates(self, unit):
+        dates = []
+        unit_path = f"{self.root}/{unit}"
+        try:
+            years = self._dir(unit_path, fields="members.name,members.type").get("members", [])
+        except Exception:
+            return []
+        for yr in years:
+            if yr["type"] != "dir" or not yr["name"].isdigit():
+                continue
+            year_path = f"{unit_path}/{yr['name']}"
+            try:
+                months = self._dir(year_path, fields="members.name,members.type").get("members", [])
+            except Exception:
+                continue
+            for mo in months:
+                if mo["type"] != "dir":
+                    continue
+                month_path = f"{year_path}/{mo['name']}"
+                try:
+                    days = self._dir(month_path, fields="members.name,members.type").get("members", [])
+                except Exception:
+                    continue
+                for day in days:
+                    if day["type"] == "dir":
+                        dates.append(f"{yr['name']}-{mo['name']}-{day['name']}")
+        return sorted(dates)
+
+    def list_videos(self, unit, date):
+        parts = date.split("-")
+        if len(parts) != 3:
+            return []
+        year, month, day = parts
+        path = f"{self.root}/{unit}/{year}/{month}/{day}"
+        try:
+            data = self._dir(path, fields="members.name,members.type")
+        except Exception:
+            return []
+        videos = []
+        for m in sorted(data.get("members", []), key=lambda x: x["name"]):
+            if not m["name"].lower().endswith(".mp4"):
+                continue
+            ts_m = re.search(r"(\d{14})", m["name"])
+            if ts_m:
+                ts = datetime.strptime(ts_m.group(1), "%Y%m%d%H%M%S")
+                videos.append({
+                    "filename": m["name"],
+                    "label":    ts.strftime("%H:%M:%S"),
+                    "path":     f"{unit}/{year}/{month}/{day}/{m['name']}",
+                    "start_iso": ts.isoformat(),
+                })
+        return videos
+
+    def serve_video(self, video_path):
+        path = f"{self.root}/{video_path}"
+        hd_headers = {}
+        range_header = request.headers.get("Range")
+        if range_header:
+            hd_headers["Range"] = range_header
+        try:
+            r = req_lib.get(
+                f"{HIDRIVE_API}/file",
+                auth=self.auth,
+                params={"path": path},
+                headers=hd_headers,
+                stream=True,
+                timeout=30,
+            )
+            r.raise_for_status()
+        except Exception:
+            return "Failed to fetch from HiDrive", 502
+
+        def generate():
+            for chunk in r.iter_content(65536):
+                yield chunk
+
+        resp_headers = {
+            "Content-Type":  r.headers.get("Content-Type", "video/mp4"),
+            "Accept-Ranges": "bytes",
+        }
+        for h in ("Content-Range", "Content-Length"):
+            if h in r.headers:
+                resp_headers[h] = r.headers[h]
+
+        return Response(generate(), status=r.status_code, headers=resp_headers)
 
 
 # ---------------------------------------------------------------------------
@@ -29,21 +247,21 @@ def _load_sessions() -> dict:
     return {}
 
 def _save_sessions():
-    SESSIONS_FILE.write_text(json.dumps(_sessions, indent=2))
+    # Never persist HiDrive sessions — credentials must not land on disk
+    to_save = {sid: s for sid, s in _sessions.items() if s.get("source", "local") == "local"}
+    SESSIONS_FILE.write_text(json.dumps(to_save, indent=2))
 
-_sessions = _load_sessions()  # session_id -> {operator, log_path}
+_sessions  = _load_sessions()
+_providers = {}
+
+# Reconstruct providers for persisted local sessions
+for _sid in list(_sessions.keys()):
+    _providers[_sid] = LocalProvider()
 
 
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
-
-def _safe_path(rel):
-    """Resolve and verify path stays within HIDRIVE_ROOT."""
-    resolved = (HIDRIVE_ROOT / rel).resolve()
-    if not str(resolved).startswith(str(HIDRIVE_ROOT.resolve())):
-        return None
-    return resolved
 
 def _ppx_from_unit(unit):
     m = re.search(r"\d+", unit)
@@ -52,6 +270,12 @@ def _ppx_from_unit(unit):
 def _operator_log_path(operator: str) -> Path:
     safe = re.sub(r"[^\w\-]", "_", operator.strip())
     return LOGS_DIR / f"{safe}.csv"
+
+def _get_provider():
+    sid = request.cookies.get("cctv_sid")
+    if sid and sid in _providers:
+        return _providers[sid]
+    return LocalProvider()
 
 
 # ---------------------------------------------------------------------------
@@ -69,109 +293,35 @@ def index():
 
 @app.route("/api/units")
 def api_units():
-    if not HIDRIVE_ROOT.is_dir():
+    try:
+        return jsonify(_get_provider().list_units())
+    except Exception:
         return jsonify([])
-    units = [
-        d for d in sorted(os.listdir(HIDRIVE_ROOT))
-        if re.match(r"PikPak", d) and (HIDRIVE_ROOT / d).is_dir()
-    ]
-    return jsonify(units)
 
 
 @app.route("/api/units/<unit>/dates")
 def api_dates(unit):
-    unit_path = HIDRIVE_ROOT / unit
-    if not unit_path.is_dir():
+    try:
+        return jsonify(_get_provider().list_dates(unit))
+    except Exception:
         return jsonify([])
-    dates = []
-    for year in sorted(os.listdir(unit_path)):
-        if not year.isdigit():
-            continue
-        year_path = unit_path / year
-        if not year_path.is_dir():
-            continue
-        for month in sorted(os.listdir(year_path)):
-            month_path = year_path / month
-            if not month_path.is_dir():
-                continue
-            for day in sorted(os.listdir(month_path)):
-                if (month_path / day).is_dir():
-                    dates.append(f"{year}-{month}-{day}")
-    return jsonify(dates)
 
 
 @app.route("/api/units/<unit>/dates/<date>/videos")
 def api_videos(unit, date):
-    parts = date.split("-")
-    if len(parts) != 3:
+    try:
+        return jsonify(_get_provider().list_videos(unit, date))
+    except Exception:
         return jsonify([])
-    year, month, day = parts
-    folder = _safe_path(f"{unit}/{year}/{month}/{day}")
-    if not folder or not folder.is_dir():
-        return jsonify([])
-    videos = []
-    for f in sorted(os.listdir(folder)):
-        if f.lower().endswith(".mp4"):
-            m = re.search(r"(\d{14})", f)
-            if m:
-                ts = datetime.strptime(m.group(1), "%Y%m%d%H%M%S")
-                videos.append({
-                    "filename": f,
-                    "label": ts.strftime("%H:%M:%S"),
-                    "path": f"{unit}/{year}/{month}/{day}/{f}",
-                    "start_iso": ts.isoformat(),
-                })
-    return jsonify(videos)
 
 
 # ---------------------------------------------------------------------------
-# Video streaming — range requests required for browser seeking/preloading
+# Video streaming
 # ---------------------------------------------------------------------------
 
 @app.route("/video/<path:video_path>")
 def serve_video(video_path):
-    full_path = _safe_path(video_path)
-    if not full_path or not full_path.exists():
-        return "Not found", 404
-
-    file_size    = full_path.stat().st_size
-    range_header = request.headers.get("Range")
-
-    if not range_header:
-        resp = send_file(full_path, mimetype="video/mp4", conditional=True)
-        resp.headers["Accept-Ranges"] = "bytes"
-        return resp
-
-    m = re.match(r"bytes=(\d+)-(\d*)", range_header)
-    if not m:
-        return "Bad range", 400
-
-    start  = int(m.group(1))
-    end    = int(m.group(2)) if m.group(2) else file_size - 1
-    end    = min(end, file_size - 1)
-    length = end - start + 1
-
-    def generate():
-        with open(full_path, "rb") as f:
-            f.seek(start)
-            remaining = length
-            while remaining > 0:
-                chunk = f.read(min(65536, remaining))
-                if not chunk:
-                    break
-                remaining -= len(chunk)
-                yield chunk
-
-    return Response(
-        generate(),
-        status=206,
-        headers={
-            "Content-Range": f"bytes {start}-{end}/{file_size}",
-            "Accept-Ranges": "bytes",
-            "Content-Length": str(length),
-            "Content-Type": "video/mp4",
-        },
-    )
+    return _get_provider().serve_video(video_path)
 
 
 # ---------------------------------------------------------------------------
@@ -180,18 +330,37 @@ def serve_video(video_path):
 
 @app.route("/api/session", methods=["POST"])
 def create_session():
-    operator   = (request.json or {}).get("operator", "unknown").strip()
+    data       = request.json or {}
+    operator   = data.get("operator", "unknown").strip()
+    source     = data.get("source", "local")
     session_id = uuid.uuid4().hex[:10]
     log_path   = _operator_log_path(operator)
 
-    # Write header only when creating a fresh file
+    if source == "hidrive":
+        hd_user = data.get("hidrive_user", "").strip()
+        hd_pass = data.get("hidrive_pass", "")
+        hd_root = (data.get("hidrive_root") or HIDRIVE_ROOT).strip()
+        provider = HiDriveProvider(hd_user, hd_pass, hd_root)
+        try:
+            provider.list_units()  # validate credentials
+        except req_lib.exceptions.HTTPError as e:
+            code = e.response.status_code
+            if code in (401, 403):
+                return jsonify({"error": "Invalid HiDrive credentials"}), 401
+            return jsonify({"error": f"HiDrive error {code}"}), 502
+        except Exception as e:
+            return jsonify({"error": f"HiDrive connection failed: {e}"}), 502
+        _providers[session_id] = provider
+    else:
+        _providers[session_id] = LocalProvider()
+
     if not log_path.exists() or log_path.stat().st_size == 0:
         with open(log_path, "w", newline="") as f:
             csv.writer(f).writerow(["PPX", "Date", "Time", "Index", "Status", "Product", "Operator"])
 
-    _sessions[session_id] = {"operator": operator, "log_path": str(log_path)}
+    _sessions[session_id] = {"operator": operator, "log_path": str(log_path), "source": source}
     _save_sessions()
-    return jsonify({"session_id": session_id})
+    return jsonify({"session_id": session_id, "source": source})
 
 
 @app.route("/api/session/<session_id>/verify")
@@ -199,7 +368,10 @@ def verify_session(session_id):
     sess = _sessions.get(session_id)
     if not sess:
         return jsonify({"valid": False}), 404
-    return jsonify({"valid": True, "operator": sess["operator"]})
+    # HiDrive sessions aren't persisted, so they die on server restart
+    if sess.get("source") == "hidrive" and session_id not in _providers:
+        return jsonify({"valid": False}), 404
+    return jsonify({"valid": True, "operator": sess["operator"], "source": sess.get("source", "local")})
 
 
 @app.route("/api/log", methods=["POST"])
@@ -240,7 +412,6 @@ def undo_event():
         return jsonify({"removed": False})
 
     lines = p.read_bytes().splitlines(keepends=True)
-    # Keep the header; remove the last data row if one exists
     if len(lines) <= 1:
         return jsonify({"removed": False})
 
