@@ -1,0 +1,49 @@
+name: Build Leap CCTV Android APK
+
+on:
+  push:
+    paths:
+      - 'hidrive_cctv_monitoring/android/**'
+      - '.github/workflows/build-cctv-android.yml'
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install Capacitor dependencies
+        run: |
+          cd hidrive_cctv_monitoring/android
+          npm ci
+
+      - name: Sync web assets into Android project
+        run: |
+          cd hidrive_cctv_monitoring/android
+          npx cap sync android
+
+      - name: Make gradlew executable
+        run: chmod +x hidrive_cctv_monitoring/android/android/gradlew
+
+      - name: Build debug APK
+        run: |
+          cd hidrive_cctv_monitoring/android/android
+          ./gradlew assembleDebug --no-daemon
+
+      - name: Upload APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: leap-cctv-debug-${{ github.run_number }}
+          path: hidrive_cctv_monitoring/android/android/app/build/outputs/apk/debug/app-debug.apk
+          retention-days: 30

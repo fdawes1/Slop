@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Leap CCTV</string>
+    <string name="title_activity_main">Leap CCTV</string>
+    <string name="package_name">com.fdawes1.cctv</string>
+    <string name="custom_url_scheme">com.fdawes1.cctv</string>
+</resources>

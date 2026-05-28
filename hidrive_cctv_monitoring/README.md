@@ -1,6 +1,6 @@
 # Leap CCTV Review
 
-Web app for reviewing CCTV footage from HiDrive-mounted PikPak units and logging robotic packing accuracy events.
+Web app for reviewing CCTV footage from PikPak units and logging robotic packing accuracy events. Supports both a locally-mounted HiDrive share and HiDrive Online (WebDAV).
 
 ## Run
 
@@ -14,23 +14,36 @@ Accessible to anyone on the network. Multiple reviewers can use it simultaneousl
 
 ## Usage
 
-1. Enter your name — a session is created and remembered via cookie (survives page refreshes)
+1. Enter your name and choose **Local mount** or **HiDrive Online**
+   - HiDrive Online: enter your HiDrive username and password — credentials are validated immediately and never written to disk
 2. Select a **unit** (PikPak003 etc.) and **date** from the sidebar
-3. Click a video to start playback — the next video preloads in the background automatically
-4. Press **G / B / I** (or click the buttons) to log Good / Bad / Issue events at the current frame
-5. Update the **Product** field any time — the current value is captured with each log entry
-6. **Download CSV** to export your session log
+3. Click a video to start playback — the next video preloads automatically
+4. Use the action buttons (or keyboard shortcuts) to log events at the current frame:
 
-**Keyboard shortcuts:** `Space` play/pause · `←/→` ±5s · `Shift+←/→` ±30s
+| Key | Action |
+|-----|--------|
+| `G` | Good |
+| `B` | Bad |
+| `I` | Issue |
+| `R` | Reject |
+| `U` | Undo last event |
+| `N` / `P` | Next / previous video |
+| `Space` | Play / pause |
+| `← / →` | ±5 s |
+| `Shift+← / →` | ±30 s |
+
+5. Adjust **playback speed** (0.75× – 2×) in the controls bar
+6. Update the **Product** field any time — captured with each log entry
+7. **Download CSV** to export your session log
 
 ## Logs
 
-Per-operator CSV files are stored in `logs/` and appended to across sessions and server restarts:
+Per-operator CSV files stored in `logs/`, appended across sessions and server restarts:
 
 ```
 logs/
-  Felix_Dawes.csv
-  Sarah_Jones.csv
+  Felix.csv
+  Sarah.csv
 ```
 
 **CSV columns:** `PPX, Date, Time, Index, Status, Product, Operator`
@@ -39,4 +52,8 @@ PPX is inferred from the unit name (PikPak013 → 13).
 
 ## Video source
 
-Reads from `/mnt/hidrive/public/PikPak*/YYYY/MM/DD/*.mp4`. Timestamps are extracted from filenames (`PikPakXXX_00_YYYYMMDDHHMMSS.mp4`).
+Reads from `/mnt/hidrive/public/PikPak*/YYYY/MM/DD/*.mp4` (local) or the same structure via HiDrive WebDAV (`webdav.hidrive.strato.com`). Timestamps are extracted from filenames (`PikPakXXX_00_YYYYMMDDHHMMSS.mp4`).
+
+## Android
+
+An Android APK is available — see [`android/`](android/README.md). It wraps the web app in a Capacitor WebView and lets you configure the server URL on first launch.
