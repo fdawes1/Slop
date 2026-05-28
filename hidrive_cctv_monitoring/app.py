@@ -228,6 +228,26 @@ def log_event():
     return jsonify({"ok": True})
 
 
+@app.route("/api/log/undo", methods=["POST"])
+def undo_event():
+    data = request.json or {}
+    sess = _sessions.get(data.get("session_id"))
+    if not sess:
+        return jsonify({"error": "invalid session"}), 400
+
+    p = Path(sess["log_path"])
+    if not p.exists():
+        return jsonify({"removed": False})
+
+    lines = p.read_bytes().splitlines(keepends=True)
+    # Keep the header; remove the last data row if one exists
+    if len(lines) <= 1:
+        return jsonify({"removed": False})
+
+    p.write_bytes(b"".join(lines[:-1]))
+    return jsonify({"removed": True})
+
+
 @app.route("/api/session/<session_id>/download")
 def download_log(session_id):
     sess = _sessions.get(session_id)

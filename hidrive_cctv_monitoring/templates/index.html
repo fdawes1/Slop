@@ -334,6 +334,40 @@
     .btn-reject { background: #7c3aed; color: #fff; }
     .key { font-size: 0.62rem; font-weight: 400; opacity: 0.55; }
 
+    .speed-wrap {
+      display: flex; align-items: center; gap: 0.3rem;
+      font-family: 'Poppins', sans-serif; font-size: 0.75rem;
+      font-weight: 700; color: var(--text-3);
+    }
+    .speed-wrap button {
+      padding: 0.28rem 0.55rem;
+      background: var(--bg-base);
+      border: 1.5px solid var(--border);
+      border-radius: var(--radius);
+      font-family: 'Poppins', sans-serif;
+      font-size: 0.72rem; font-weight: 700;
+      color: var(--text-2); cursor: pointer;
+      transition: background var(--transition), border-color var(--transition), color var(--transition);
+    }
+    .speed-wrap button.active {
+      background: var(--accent); border-color: var(--accent); color: #fff;
+    }
+    .speed-wrap button:hover:not(.active) { border-color: var(--accent); color: var(--accent); }
+
+    .btn-undo {
+      padding: 0.48rem 1.1rem;
+      background: transparent;
+      border: 1.5px solid var(--border);
+      border-radius: var(--radius);
+      font-family: 'Poppins', sans-serif;
+      font-size: 0.85rem; font-weight: 800;
+      color: var(--text-3); cursor: pointer;
+      transition: border-color var(--transition), color var(--transition), background var(--transition);
+      box-shadow: 0 2px 6px rgba(0,0,0,0.07);
+    }
+    .btn-undo:hover { border-color: var(--accent); color: var(--accent); }
+    .btn-undo:active { transform: scale(0.94); }
+
     /* ── Event log ───────────────────────────────────────────────── */
     .event-log {
       height: 138px; overflow-y: auto;
@@ -467,6 +501,16 @@
           <button class="btn-reject" id="btn-reject" onclick="logEvent('Reject')">
             Reject <span class="key">[R]</span>
           </button>
+          <button class="btn-undo" id="btn-undo" onclick="undoEvent()">
+            Undo <span class="key">[U]</span>
+          </button>
+        </div>
+        <div class="speed-wrap">
+          <span>Speed</span>
+          <button onclick="setSpeed(0.75)" data-speed="0.75">0.75×</button>
+          <button onclick="setSpeed(1)"    data-speed="1"    class="active">1×</button>
+          <button onclick="setSpeed(1.5)"  data-speed="1.5">1.5×</button>
+          <button onclick="setSpeed(2)"    data-speed="2">2×</button>
         </div>
       </div>
 
@@ -725,11 +769,14 @@ function loadVideoAt(idx) {
   const video = unitVideos[idx];
   const src   = `/video/${video.path}`;
 
+  const currentRate = activePlayer().playbackRate || 1;
+
   if (playerSrc[1 - activeSlot] === src && bgPlayer().readyState >= 2) {
     activePlayer().pause();
     activePlayer().style.display = 'none';
     bgPlayer().style.display     = 'block';
     activeSlot = 1 - activeSlot;
+    activePlayer().playbackRate  = currentRate;
     activePlayer().play().catch(() => {});
     document.getElementById('loading-overlay').classList.remove('show');
   } else {
@@ -737,6 +784,7 @@ function loadVideoAt(idx) {
     activePlayer().src = src;
     activePlayer().load();
     playerSrc[activeSlot] = src;
+    activePlayer().playbackRate  = currentRate;
     activePlayer().play().catch(() => {});
     activePlayer().style.display = 'block';
   }
@@ -817,6 +865,30 @@ function flashBtn(status) {
   btn.addEventListener('animationend', () => btn.classList.remove(cls), { once: true });
 }
 
+// ── Undo ───────────────────────────────────────────────────────────────────
+async function undoEvent() {
+  if (!sessionId || logRows.length === 0) return;
+  const res  = await fetch('/api/log/undo', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ session_id: sessionId }),
+  });
+  const data = await res.json();
+  if (data.removed) {
+    logRows.shift();
+    eventCount = Math.max(0, eventCount - 1);
+    renderLog();
+  }
+}
+
+// ── Speed ──────────────────────────────────────────────────────────────────
+function setSpeed(rate) {
+  players.forEach(p => { p.playbackRate = rate; });
+  document.querySelectorAll('.speed-wrap button').forEach(btn => {
+    btn.classList.toggle('active', parseFloat(btn.dataset.speed) === rate);
+  });
+}
+
 // ── Download ───────────────────────────────────────────────────────────────
 function downloadCSV() {
   if (sessionId) window.location = `/api/session/${sessionId}/download`;
@@ -832,6 +904,9 @@ document.addEventListener('keydown', e => {
     case 'b': logEvent('Bad');    break;
     case 'i': logEvent('Issue');  break;
     case 'r': logEvent('Reject'); break;
+    case 'u': undoEvent();        break;
+    case 'n': loadVideoAt(currentIdx + 1); break;
+    case 'p': loadVideoAt(currentIdx - 1); break;
     case ' ':
       e.preventDefault();
       p.paused ? p.play() : p.pause();
