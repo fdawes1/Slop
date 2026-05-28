@@ -1,0 +1,871 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CCTV Review — Leap</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@600;700;800&family=Albert+Sans:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet">
+  <style>
+    /* ── Design tokens ───────────────────────────────────────────── */
+    :root {
+      --bg-base:     #f5f6fa;
+      --bg-surface:  #ffffff;
+      --bg-sidebar:  #f0f2f8;
+      --bg-controls: #ffffff;
+      --bg-log:      #f8f9fc;
+      --bg-header:   #4652A3;
+      --text-header: #ffffff;
+      --text-1:      #262626;
+      --text-2:      #4F5253;
+      --text-3:      #919191;
+      --border:      #dde0ee;
+      --accent:      #4652A3;
+      --accent-h:    #3a4590;
+      --cyan:        #52C6DA;
+      --teal:        #63C2A2;
+      --shadow:      0 2px 14px rgba(70,82,163,0.13);
+      --shadow-modal:0 8px 40px rgba(70,82,163,0.22);
+      --radius:      10px;
+      --transition:  0.25s ease;
+    }
+    [data-theme="dark"] {
+      --bg-base:     #111117;
+      --bg-surface:  #1a1a24;
+      --bg-sidebar:  #14141d;
+      --bg-controls: #1a1a24;
+      --bg-log:      #111117;
+      --bg-header:   #1a1a24;
+      --text-header: #e8e8f0;
+      --text-1:      #e8e8f0;
+      --text-2:      #9898b0;
+      --text-3:      #4a4a60;
+      --border:      #26263a;
+      --accent:      #6472c8;
+      --accent-h:    #7585d8;
+      --cyan:        #52C6DA;
+      --teal:        #63C2A2;
+      --shadow:      0 2px 14px rgba(0,0,0,0.5);
+      --shadow-modal:0 8px 40px rgba(0,0,0,0.7);
+    }
+
+    /* ── Reset & base ────────────────────────────────────────────── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Albert Sans', system-ui, sans-serif;
+      background: var(--bg-base);
+      color: var(--text-1);
+      height: 100vh;
+      display: flex; flex-direction: column;
+      overflow: hidden;
+      transition: background var(--transition), color var(--transition);
+    }
+
+    /* ── Modal ───────────────────────────────────────────────────── */
+    #setup-modal {
+      position: fixed; inset: 0;
+      background: rgba(20,20,40,0.72);
+      backdrop-filter: blur(6px);
+      display: flex; align-items: center; justify-content: center;
+      z-index: 200;
+    }
+    .modal-box {
+      background: var(--bg-surface);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      padding: 2.5rem 2rem;
+      width: 360px;
+      box-shadow: var(--shadow-modal);
+    }
+    .modal-logo {
+      display: flex; align-items: center; gap: 0.5rem;
+      margin-bottom: 1.5rem;
+    }
+    .modal-logo .logo-dot {
+      width: 10px; height: 10px; border-radius: 50%;
+      background: linear-gradient(135deg, var(--accent) 0%, var(--cyan) 100%);
+    }
+    .modal-logo span {
+      font-family: 'Poppins', sans-serif;
+      font-weight: 800; font-size: 1rem;
+      color: var(--accent);
+      letter-spacing: 0.02em;
+    }
+    .modal-box h2 {
+      font-family: 'Poppins', sans-serif;
+      font-weight: 700; font-size: 1.3rem;
+      color: var(--text-1); margin-bottom: 0.4rem;
+    }
+    .modal-box p { font-size: 0.85rem; color: var(--text-3); margin-bottom: 1.5rem; }
+    .modal-box input {
+      width: 100%; padding: 0.7rem 1rem;
+      background: var(--bg-base);
+      border: 2px solid var(--border);
+      border-radius: var(--radius);
+      color: var(--text-1); font-family: 'Albert Sans', sans-serif;
+      font-size: 0.95rem; margin-bottom: 1rem; outline: none;
+      transition: border-color var(--transition);
+    }
+    .modal-box input:focus { border-color: var(--accent); }
+    .modal-box button {
+      width: 100%; padding: 0.75rem;
+      background: var(--accent); color: #fff;
+      border: none; border-radius: var(--radius);
+      font-family: 'Poppins', sans-serif;
+      font-size: 0.95rem; font-weight: 800; cursor: pointer;
+      transition: background var(--transition), transform 0.1s;
+    }
+    .modal-box button:hover  { background: var(--accent-h); }
+    .modal-box button:active { transform: scale(0.97); }
+
+    /* ── Header ──────────────────────────────────────────────────── */
+    header {
+      display: flex; align-items: center; gap: 0.75rem;
+      padding: 0 1rem;
+      height: 44px;
+      background: var(--bg-header);
+      border-bottom: 1px solid rgba(255,255,255,0.08);
+      flex-shrink: 0;
+      transition: background var(--transition);
+    }
+    .header-brand {
+      display: flex; align-items: center; gap: 0.45rem;
+      margin-right: 0.5rem;
+    }
+    .header-brand .dot {
+      width: 8px; height: 8px; border-radius: 50%;
+      background: linear-gradient(135deg, var(--cyan) 0%, var(--teal) 100%);
+      flex-shrink: 0;
+    }
+    .header-brand span {
+      font-family: 'Poppins', sans-serif;
+      font-weight: 800; font-size: 0.88rem;
+      color: var(--text-header);
+      letter-spacing: 0.03em;
+    }
+    .h-sep { color: rgba(255,255,255,0.2); font-size: 0.8rem; }
+    #header-unit {
+      font-size: 0.8rem; font-weight: 700;
+      color: var(--cyan);
+      font-family: 'Poppins', sans-serif;
+    }
+    #header-time {
+      font-size: 0.78rem; color: rgba(255,255,255,0.5);
+      font-family: monospace;
+    }
+    [data-theme="dark"] #header-time { color: var(--text-3); }
+    .spacer { flex: 1; }
+    #event-count-header {
+      font-size: 0.75rem; color: rgba(255,255,255,0.4);
+      font-family: 'Albert Sans', sans-serif;
+    }
+    [data-theme="dark"] #event-count-header { color: var(--text-3); }
+
+    .btn-download {
+      padding: 0.3rem 0.75rem;
+      background: transparent; color: var(--cyan);
+      border: 1.5px solid var(--cyan); border-radius: var(--radius);
+      font-family: 'Poppins', sans-serif;
+      font-size: 0.75rem; font-weight: 700; cursor: pointer;
+      transition: background var(--transition), color var(--transition);
+    }
+    .btn-download:hover { background: var(--cyan); color: #111; }
+
+    .btn-theme {
+      padding: 0.3rem 0.65rem;
+      background: transparent;
+      color: rgba(255,255,255,0.6);
+      border: 1.5px solid rgba(255,255,255,0.2);
+      border-radius: var(--radius);
+      font-size: 0.8rem; cursor: pointer;
+      transition: all var(--transition);
+      line-height: 1;
+    }
+    .btn-theme:hover { border-color: rgba(255,255,255,0.5); color: #fff; }
+
+    /* ── Layout ──────────────────────────────────────────────────── */
+    #app { display: none; flex-direction: column; flex: 1; overflow: hidden; }
+    .layout { display: flex; flex: 1; overflow: hidden; }
+
+    /* ── Sidebar ─────────────────────────────────────────────────── */
+    aside {
+      width: 216px; flex-shrink: 0;
+      background: var(--bg-sidebar);
+      border-right: 1px solid var(--border);
+      display: flex; flex-direction: column;
+      overflow: hidden;
+      transition: background var(--transition), border-color var(--transition);
+    }
+    .sb-section {
+      padding: 0.65rem 0.8rem;
+      border-bottom: 1px solid var(--border);
+      flex-shrink: 0;
+    }
+    .sb-section label {
+      display: block;
+      font-family: 'Poppins', sans-serif;
+      font-size: 0.6rem; font-weight: 700;
+      color: var(--text-3);
+      text-transform: uppercase; letter-spacing: 0.08em;
+      margin-bottom: 0.4rem;
+    }
+    aside select {
+      width: 100%; padding: 0.4rem 0.6rem;
+      background: var(--bg-surface);
+      border: 1.5px solid var(--border);
+      border-radius: var(--radius);
+      color: var(--text-1);
+      font-family: 'Albert Sans', sans-serif;
+      font-size: 0.82rem; cursor: pointer; outline: none;
+      transition: border-color var(--transition), background var(--transition);
+    }
+    aside select:focus { border-color: var(--accent); }
+
+    #video-list { flex: 1; overflow-y: auto; padding: 0.4rem 0; }
+    .vi {
+      padding: 0.45rem 0.8rem;
+      cursor: pointer; font-size: 0.8rem;
+      color: var(--text-3);
+      border-left: 3px solid transparent;
+      display: flex; align-items: center; gap: 0.5rem;
+      transition: background var(--transition), color var(--transition);
+    }
+    .vi:hover { background: var(--bg-surface); color: var(--text-1); }
+    .vi.active {
+      background: var(--bg-surface);
+      color: var(--accent);
+      border-left-color: var(--accent);
+    }
+    .vi .vi-time {
+      font-family: 'Poppins', sans-serif;
+      font-weight: 600; font-size: 0.8rem;
+      font-variant-numeric: tabular-nums;
+    }
+    .vi .vi-preload {
+      margin-left: auto; font-size: 0.55rem;
+      color: var(--teal); opacity: 0;
+      transition: opacity 0.3s;
+    }
+    .vi .vi-preload.ready { opacity: 1; }
+    .vi-empty {
+      padding: 0.8rem; font-size: 0.78rem;
+      color: var(--text-3); text-align: center;
+    }
+
+    /* ── Player ──────────────────────────────────────────────────── */
+    main { flex: 1; display: flex; flex-direction: column; overflow: hidden; min-width: 0; }
+
+    .player-wrap {
+      flex: 1; background: #000; position: relative;
+      display: flex; align-items: center; justify-content: center;
+      overflow: hidden; min-height: 0;
+    }
+    .player-wrap video {
+      position: absolute; inset: 0;
+      width: 100%; height: 100%; object-fit: contain;
+    }
+    #player-b { display: none; }
+
+    .ts-overlay {
+      position: absolute; top: 0.65rem; left: 0.65rem;
+      background: rgba(0,0,0,0.6);
+      color: #fff; font-size: 0.78rem; font-family: monospace;
+      padding: 0.25rem 0.6rem; border-radius: 6px;
+      pointer-events: none;
+      border: 1px solid rgba(255,255,255,0.08);
+    }
+    .loading-overlay {
+      position: absolute; inset: 0;
+      display: none; align-items: center; justify-content: center;
+      background: rgba(0,0,0,0.55);
+      font-family: 'Poppins', sans-serif;
+      font-size: 0.85rem; color: var(--cyan);
+      letter-spacing: 0.05em;
+    }
+    .loading-overlay.show { display: flex; }
+    .no-video-msg {
+      position: absolute;
+      font-family: 'Albert Sans', sans-serif;
+      color: #333; font-size: 0.9rem;
+    }
+
+    /* ── Controls ────────────────────────────────────────────────── */
+    .controls {
+      background: var(--bg-controls);
+      border-top: 1px solid var(--border);
+      padding: 0.6rem 1rem;
+      display: flex; align-items: center; gap: 1rem;
+      flex-shrink: 0;
+      transition: background var(--transition), border-color var(--transition);
+    }
+    .product-wrap {
+      display: flex; align-items: center; gap: 0.5rem;
+      font-size: 0.78rem; color: var(--text-3);
+      font-family: 'Poppins', sans-serif; font-weight: 600;
+    }
+    .product-wrap input {
+      padding: 0.38rem 0.7rem;
+      background: var(--bg-base);
+      border: 1.5px solid var(--border);
+      border-radius: var(--radius);
+      color: var(--text-1);
+      font-family: 'Albert Sans', sans-serif;
+      font-size: 0.82rem; width: 160px; outline: none;
+      transition: border-color var(--transition), background var(--transition);
+    }
+    .product-wrap input:focus { border-color: var(--accent); }
+
+    .action-btns { display: flex; gap: 0.5rem; }
+    .action-btns button {
+      padding: 0.48rem 1.1rem;
+      border: none; border-radius: var(--radius);
+      font-family: 'Poppins', sans-serif;
+      font-size: 0.85rem; font-weight: 800; cursor: pointer;
+      transition: filter 0.12s, transform 0.1s, box-shadow 0.12s;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.15);
+    }
+    .action-btns button:hover  { filter: brightness(1.1); box-shadow: 0 4px 10px rgba(0,0,0,0.2); }
+    .action-btns button:active { transform: scale(0.94); }
+    .btn-good  { background: #16a34a; color: #fff; }
+    .btn-bad   { background: #dc2626; color: #fff; }
+    .btn-issue { background: #d97706; color: #fff; }
+    .key { font-size: 0.62rem; font-weight: 400; opacity: 0.55; }
+
+    /* ── Event log ───────────────────────────────────────────────── */
+    .event-log {
+      height: 138px; overflow-y: auto;
+      background: var(--bg-log);
+      border-top: 1px solid var(--border);
+      flex-shrink: 0;
+      transition: background var(--transition);
+    }
+    .event-log table { width: 100%; border-collapse: collapse; font-size: 0.75rem; }
+    .event-log thead th {
+      padding: 0.3rem 0.75rem;
+      text-align: left;
+      font-family: 'Poppins', sans-serif;
+      font-size: 0.6rem; font-weight: 700;
+      color: var(--text-3);
+      text-transform: uppercase; letter-spacing: 0.07em;
+      position: sticky; top: 0;
+      background: var(--bg-sidebar);
+      border-bottom: 1px solid var(--border);
+    }
+    .event-log tbody td {
+      padding: 0.28rem 0.75rem;
+      color: var(--text-2);
+      border-bottom: 1px solid var(--border);
+      font-family: 'Albert Sans', sans-serif;
+    }
+    .event-log tbody tr:hover td { background: var(--bg-surface); }
+    .s-good  { color: #16a34a; font-weight: 700; }
+    .s-bad   { color: #dc2626; font-weight: 700; }
+    .s-issue { color: #d97706; font-weight: 700; }
+    [data-theme="dark"] .s-good  { color: #4ade80; }
+    [data-theme="dark"] .s-bad   { color: #f87171; }
+    [data-theme="dark"] .s-issue { color: #fbbf24; }
+
+    /* ── Scrollbar ───────────────────────────────────────────────── */
+    ::-webkit-scrollbar { width: 5px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+
+    /* ── Flash animations ────────────────────────────────────────── */
+    @keyframes flash-good  { 0%,100%{background:#16a34a} 50%{background:#22c55e} }
+    @keyframes flash-bad   { 0%,100%{background:#dc2626} 50%{background:#ef4444} }
+    @keyframes flash-issue { 0%,100%{background:#d97706} 50%{background:#f59e0b} }
+    .flash-good  { animation: flash-good  0.18s ease; }
+    .flash-bad   { animation: flash-bad   0.18s ease; }
+    .flash-issue { animation: flash-issue 0.18s ease; }
+  </style>
+</head>
+<body>
+
+<!-- ── Setup modal ───────────────────────────────────────────────────── -->
+<div id="setup-modal">
+  <div class="modal-box">
+    <div class="modal-logo">
+      <div class="logo-dot"></div>
+      <span>Leap CCTV Review</span>
+    </div>
+    <h2>Sign in to start</h2>
+    <p>Your events will be saved to a persistent log file.</p>
+    <input id="operator-input" type="text" placeholder="Your name" autofocus>
+    <button onclick="startSession()">Start Session</button>
+  </div>
+</div>
+
+<!-- ── Main app ──────────────────────────────────────────────────────── -->
+<div id="app">
+  <header>
+    <div class="header-brand">
+      <div class="dot"></div>
+      <span>Leap CCTV</span>
+    </div>
+    <span class="h-sep">|</span>
+    <span id="header-unit">—</span>
+    <span class="h-sep">|</span>
+    <span id="header-time">—</span>
+    <span class="spacer"></span>
+    <span id="event-count-header">0 events</span>
+    <button class="btn-download" onclick="downloadCSV()">Download CSV</button>
+    <button class="btn-theme" id="theme-toggle" onclick="toggleTheme()" title="Toggle light/dark mode">☀</button>
+  </header>
+
+  <div class="layout">
+
+    <!-- Sidebar -->
+    <aside>
+      <div class="sb-section">
+        <label>Unit</label>
+        <select id="unit-select" onchange="onUnitChange()">
+          <option value="">Select unit…</option>
+        </select>
+      </div>
+      <div class="sb-section">
+        <label>Date</label>
+        <select id="date-select" onchange="onDateChange()" disabled>
+          <option value="">Select date…</option>
+        </select>
+      </div>
+      <ul id="video-list"></ul>
+    </aside>
+
+    <!-- Main -->
+    <main>
+      <div class="player-wrap" id="player-wrap">
+        <!-- Two video elements; only one visible at a time -->
+        <video id="player-a" preload="auto"></video>
+        <video id="player-b" preload="auto"></video>
+        <div class="ts-overlay" id="ts-overlay">—</div>
+        <div class="loading-overlay" id="loading-overlay">Loading…</div>
+        <span class="no-video-msg" id="no-video-msg">Select a video from the sidebar</span>
+      </div>
+
+      <div class="controls">
+        <div class="product-wrap">
+          <span>Product</span>
+          <input id="product-input" type="text" value="mixed leaf" placeholder="Product name">
+        </div>
+        <div class="action-btns">
+          <button class="btn-good"  id="btn-good"  onclick="logEvent('Good')">
+            Good <span class="key">[G]</span>
+          </button>
+          <button class="btn-bad"   id="btn-bad"   onclick="logEvent('Bad')">
+            Bad <span class="key">[B]</span>
+          </button>
+          <button class="btn-issue" id="btn-issue" onclick="logEvent('Issue')">
+            Issue <span class="key">[I]</span>
+          </button>
+        </div>
+      </div>
+
+      <div class="event-log">
+        <table>
+          <thead>
+            <tr>
+              <th>Real time</th><th>Status</th><th>Product</th><th>Unit</th>
+            </tr>
+          </thead>
+          <tbody id="log-tbody"></tbody>
+        </table>
+      </div>
+    </main>
+  </div>
+</div>
+
+<script>
+// ── State ──────────────────────────────────────────────────────────────────
+let sessionId   = null;
+let operator    = null;
+let unitVideos  = [];
+let currentIdx  = -1;
+let currentUnit = null;
+let eventCount  = 0;
+let logRows     = [];
+
+// ── Dual-player preloading ─────────────────────────────────────────────────
+const players  = [
+  document.getElementById('player-a'),
+  document.getElementById('player-b'),
+];
+let activeSlot = 0;
+const playerSrc = ['', ''];
+
+function activePlayer() { return players[activeSlot]; }
+function bgPlayer()     { return players[1 - activeSlot]; }
+
+players.forEach((p, slot) => {
+  p.addEventListener('timeupdate', () => {
+    if (slot !== activeSlot || currentIdx < 0) return;
+    const start = new Date(unitVideos[currentIdx].start_iso);
+    const real  = new Date(start.getTime() + p.currentTime * 1000);
+    document.getElementById('ts-overlay').textContent  = fmtTs(real);
+    document.getElementById('header-time').textContent = fmtTs(real);
+  });
+  p.addEventListener('waiting', () => {
+    if (slot !== activeSlot) return;
+    document.getElementById('loading-overlay').classList.add('show');
+  });
+  p.addEventListener('canplay', () => {
+    if (slot !== activeSlot) return;
+    document.getElementById('loading-overlay').classList.remove('show');
+    schedulePreload(currentIdx + 1);
+  });
+  p.addEventListener('ended', () => {
+    if (slot !== activeSlot) return;
+    loadVideoAt(currentIdx + 1);
+  });
+});
+
+// ── Cookie helpers ─────────────────────────────────────────────────────────
+function setCookie(name, value, days) {
+  const expires = new Date(Date.now() + days * 864e5).toUTCString();
+  document.cookie = `${name}=${encodeURIComponent(value)}; expires=${expires}; path=/; SameSite=Strict`;
+}
+
+function getCookie(name) {
+  const m = document.cookie.match('(?:^|; )' + name + '=([^;]*)');
+  return m ? decodeURIComponent(m[1]) : null;
+}
+
+function deleteCookie(name) {
+  document.cookie = `${name}=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/`;
+}
+
+// ── Session persistence ────────────────────────────────────────────────────
+function persistSession() {
+  // localStorage: full session object
+  localStorage.setItem('cctv_session', JSON.stringify({ sessionId, operator }));
+  // Cookie: session ID only (survives localStorage clears, 30 days)
+  setCookie('cctv_sid', sessionId, 30);
+  setCookie('cctv_op',  operator,  30);
+}
+
+function persistPosition(unit, date, videoIdx) {
+  localStorage.setItem('cctv_pos', JSON.stringify({ unit, date, videoIdx }));
+}
+
+function clearPersistedSession() {
+  localStorage.removeItem('cctv_session');
+  localStorage.removeItem('cctv_pos');
+  deleteCookie('cctv_sid');
+  deleteCookie('cctv_op');
+}
+
+// ── Session restore on page load ───────────────────────────────────────────
+window.addEventListener('DOMContentLoaded', async () => {
+  // Try localStorage first, fall back to cookies
+  let storedId  = null;
+  let storedOp  = null;
+
+  try {
+    const ls = JSON.parse(localStorage.getItem('cctv_session') || 'null');
+    if (ls) { storedId = ls.sessionId; storedOp = ls.operator; }
+  } catch (_) {}
+
+  if (!storedId) {
+    storedId = getCookie('cctv_sid');
+    storedOp = getCookie('cctv_op');
+  }
+
+  if (storedId) {
+    try {
+      const res  = await fetch(`/api/session/${storedId}/verify`);
+      const data = await res.json();
+      if (data.valid) {
+        sessionId = storedId;
+        operator  = data.operator;  // always trust the server's copy
+        await activateApp();
+
+        // Restore last position if available
+        try {
+          const pos = JSON.parse(localStorage.getItem('cctv_pos') || 'null');
+          if (pos && pos.unit) await restorePosition(pos);
+        } catch (_) {}
+        return;
+      }
+    } catch (_) {}
+    // Session invalid (server restarted and sessions.json missing?) — clear stale data
+    clearPersistedSession();
+  }
+
+  // No valid session: show the modal, pre-fill operator name if cookie has it
+  if (storedOp) document.getElementById('operator-input').value = storedOp;
+});
+
+async function restorePosition({ unit, date, videoIdx }) {
+  await loadUnits();
+  const unitSel = document.getElementById('unit-select');
+  if (!unitSel.querySelector(`option[value="${unit}"]`)) return;
+  unitSel.value = unit;
+
+  await _fetchDates(unit);
+  const dateSel = document.getElementById('date-select');
+  if (!dateSel.querySelector(`option[value="${date}"]`)) return;
+  dateSel.value = date;
+
+  await _fetchVideos(unit, date);
+  if (videoIdx >= 0 && videoIdx < unitVideos.length) loadVideoAt(videoIdx);
+}
+
+// ── Session start (new login) ──────────────────────────────────────────────
+async function startSession() {
+  const name = document.getElementById('operator-input').value.trim();
+  if (!name) return;
+
+  const res  = await fetch('/api/session', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ operator: name }),
+  });
+  const data = await res.json();
+  sessionId  = data.session_id;
+  operator   = name;
+  persistSession();
+  await activateApp();
+}
+
+document.getElementById('operator-input').addEventListener('keydown', e => {
+  if (e.key === 'Enter') startSession();
+});
+
+async function activateApp() {
+  document.getElementById('setup-modal').style.display = 'none';
+  document.getElementById('app').style.display         = 'flex';
+  document.getElementById('app').style.flexDirection   = 'column';
+  await loadUnits();
+}
+
+// ── Browse ─────────────────────────────────────────────────────────────────
+async function loadUnits() {
+  const res   = await fetch('/api/units');
+  const units = await res.json();
+  const sel   = document.getElementById('unit-select');
+  sel.innerHTML = '<option value="">Select unit…</option>';
+  units.forEach(u => {
+    const o = document.createElement('option');
+    o.value = o.textContent = u;
+    sel.appendChild(o);
+  });
+}
+
+async function onUnitChange() {
+  const unit = document.getElementById('unit-select').value;
+  document.getElementById('video-list').innerHTML = '';
+  if (!unit) {
+    document.getElementById('date-select').innerHTML = '<option value="">Select date…</option>';
+    document.getElementById('date-select').disabled  = true;
+    return;
+  }
+  persistPosition(unit, '', -1);
+  await _fetchDates(unit);
+}
+
+async function _fetchDates(unit) {
+  const res   = await fetch(`/api/units/${unit}/dates`);
+  const dates = await res.json();
+  const sel   = document.getElementById('date-select');
+  sel.innerHTML = '<option value="">Select date…</option>';
+  [...dates].reverse().forEach(d => {
+    const o = document.createElement('option');
+    o.value = o.textContent = d;
+    sel.appendChild(o);
+  });
+  sel.disabled = false;
+}
+
+async function onDateChange() {
+  const unit = document.getElementById('unit-select').value;
+  const date = document.getElementById('date-select').value;
+  if (!unit || !date) return;
+  persistPosition(unit, date, -1);
+  await _fetchVideos(unit, date);
+}
+
+async function _fetchVideos(unit, date) {
+  const list = document.getElementById('video-list');
+  list.innerHTML = '';
+  unitVideos  = [];
+  currentIdx  = -1;
+  currentUnit = unit;
+
+  const res  = await fetch(`/api/units/${unit}/dates/${date}/videos`);
+  unitVideos = await res.json();
+
+  if (unitVideos.length === 0) {
+    list.innerHTML = '<li class="vi-empty">No videos found</li>';
+    return;
+  }
+  unitVideos.forEach((v, i) => {
+    const li = document.createElement('li');
+    li.className   = 'vi';
+    li.dataset.idx = i;
+    li.innerHTML   = `<span class="vi-time">${v.label}</span><span class="vi-preload" id="pre-${i}">●</span>`;
+    li.onclick     = () => loadVideoAt(i);
+    list.appendChild(li);
+  });
+  schedulePreload(0);
+}
+
+// ── Video loading & preloading ─────────────────────────────────────────────
+function loadVideoAt(idx) {
+  if (idx < 0 || idx >= unitVideos.length) return;
+
+  const video = unitVideos[idx];
+  const src   = `/video/${video.path}`;
+
+  if (playerSrc[1 - activeSlot] === src && bgPlayer().readyState >= 2) {
+    activePlayer().pause();
+    activePlayer().style.display = 'none';
+    bgPlayer().style.display     = 'block';
+    activeSlot = 1 - activeSlot;
+    activePlayer().play().catch(() => {});
+    document.getElementById('loading-overlay').classList.remove('show');
+  } else {
+    document.getElementById('loading-overlay').classList.add('show');
+    activePlayer().src = src;
+    activePlayer().load();
+    playerSrc[activeSlot] = src;
+    activePlayer().play().catch(() => {});
+    activePlayer().style.display = 'block';
+  }
+
+  currentIdx = idx;
+  document.getElementById('no-video-msg').style.display = 'none';
+  document.getElementById('header-unit').textContent    = `${currentUnit}  ·  ${video.label}`;
+  updateSidebarActive(idx);
+
+  // Save position so a refresh returns here
+  const date = document.getElementById('date-select').value;
+  persistPosition(currentUnit, date, idx);
+}
+
+function schedulePreload(idx) {
+  if (idx < 0 || idx >= unitVideos.length) return;
+  const src = `/video/${unitVideos[idx].path}`;
+  if (playerSrc[1 - activeSlot] === src) return;
+
+  const bg = bgPlayer();
+  bg.src   = src;
+  bg.load();
+  playerSrc[1 - activeSlot] = src;
+
+  bg.addEventListener('canplay', () => {
+    const dot = document.getElementById(`pre-${idx}`);
+    if (dot) dot.classList.add('ready');
+  }, { once: true });
+}
+
+function updateSidebarActive(idx) {
+  document.querySelectorAll('.vi').forEach(el => el.classList.remove('active'));
+  const el = document.querySelector(`.vi[data-idx="${idx}"]`);
+  if (el) { el.classList.add('active'); el.scrollIntoView({ block: 'nearest' }); }
+}
+
+// ── Logging ────────────────────────────────────────────────────────────────
+async function logEvent(status) {
+  if (currentIdx < 0) return;
+
+  const video   = unitVideos[currentIdx];
+  const start   = new Date(video.start_iso);
+  const ts      = new Date(start.getTime() + activePlayer().currentTime * 1000);
+  const product = document.getElementById('product-input').value.trim();
+
+  fetch('/api/log', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ session_id: sessionId, unit: currentUnit, timestamp: ts.toISOString(), status, product }),
+  });
+
+  eventCount++;
+  logRows.unshift({ time: fmtTs(ts), status, product, unit: currentUnit });
+  renderLog();
+  flashBtn(status);
+}
+
+function renderLog() {
+  document.getElementById('log-tbody').innerHTML = logRows.slice(0, 80).map(r => `
+    <tr>
+      <td>${r.time}</td>
+      <td class="s-${r.status.toLowerCase()}">${r.status}</td>
+      <td>${escHtml(r.product)}</td>
+      <td>${r.unit}</td>
+    </tr>`).join('');
+  document.getElementById('event-count-header').textContent =
+    `${eventCount} event${eventCount !== 1 ? 's' : ''}`;
+}
+
+function flashBtn(status) {
+  const map = { Good: 'btn-good', Bad: 'btn-bad', Issue: 'btn-issue' };
+  const btn = document.getElementById(map[status]);
+  if (!btn) return;
+  const cls = `flash-${status.toLowerCase()}`;
+  btn.classList.remove(cls);
+  void btn.offsetWidth;
+  btn.classList.add(cls);
+  btn.addEventListener('animationend', () => btn.classList.remove(cls), { once: true });
+}
+
+// ── Download ───────────────────────────────────────────────────────────────
+function downloadCSV() {
+  if (sessionId) window.location = `/api/session/${sessionId}/download`;
+}
+
+// ── Keyboard shortcuts ─────────────────────────────────────────────────────
+document.addEventListener('keydown', e => {
+  if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+  if (!sessionId) return;
+  const p = activePlayer();
+  switch (e.key.toLowerCase()) {
+    case 'g': logEvent('Good');  break;
+    case 'b': logEvent('Bad');   break;
+    case 'i': logEvent('Issue'); break;
+    case ' ':
+      e.preventDefault();
+      p.paused ? p.play() : p.pause();
+      break;
+    case 'arrowleft':
+      e.preventDefault();
+      p.currentTime = Math.max(0, p.currentTime - (e.shiftKey ? 30 : 5));
+      break;
+    case 'arrowright':
+      e.preventDefault();
+      p.currentTime = Math.min(p.duration || Infinity, p.currentTime + (e.shiftKey ? 30 : 5));
+      break;
+  }
+});
+
+// ── Helpers ────────────────────────────────────────────────────────────────
+function fmtTs(dt) {
+  const d = `${dt.getDate().toString().padStart(2,'0')}/${(dt.getMonth()+1).toString().padStart(2,'0')}/${dt.getFullYear()}`;
+  const t = `${dt.getHours().toString().padStart(2,'0')}:${dt.getMinutes().toString().padStart(2,'0')}:${dt.getSeconds().toString().padStart(2,'0')}`;
+  return `${d}  ${t}`;
+}
+
+function escHtml(s) {
+  return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+// ── Theme toggle ───────────────────────────────────────────────────────────
+function applyTheme(theme) {
+  document.documentElement.setAttribute('data-theme', theme);
+  document.getElementById('theme-toggle').textContent = theme === 'dark' ? '☀' : '☾';
+  localStorage.setItem('cctv_theme', theme);
+}
+
+function toggleTheme() {
+  const current = document.documentElement.getAttribute('data-theme') || 'dark';
+  applyTheme(current === 'dark' ? 'light' : 'dark');
+}
+
+// Apply saved theme immediately (before DOMContentLoaded to avoid flash)
+(function () {
+  const saved = localStorage.getItem('cctv_theme') || 'dark';
+  applyTheme(saved);
+})();
+</script>
+</body>
+</html>

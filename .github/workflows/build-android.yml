@@ -3,7 +3,7 @@ name: Build Android APK
 on:
   push:
     paths:
-      - 'db_meter_android/**'
+      - 'db_meter/android/**'
       - '.github/workflows/build-android.yml'
   workflow_dispatch:
 
@@ -25,25 +25,25 @@ jobs:
 
       - name: Install Capacitor dependencies
         run: |
-          cd db_meter_android
+          cd db_meter/android
           npm ci
 
       - name: Sync web assets into Android project
         run: |
-          cd db_meter_android
+          cd db_meter/android
           npx cap sync android
 
       - name: Make gradlew executable
-        run: chmod +x db_meter_android/android/gradlew
+        run: chmod +x db_meter/android/android/gradlew
 
       - name: Build debug APK
         run: |
-          cd db_meter_android/android
+          cd db_meter/android/android
           ./gradlew assembleDebug --no-daemon
 
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         with:
           name: noisewatch7-debug-${{ github.run_number }}
-          path: db_meter_android/android/app/build/outputs/apk/debug/app-debug.apk
+          path: db_meter/android/android/app/build/outputs/apk/debug/app-debug.apk
           retention-days: 30
