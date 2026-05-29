@@ -1,7 +1,13 @@
 package com.fdawes1.cctv;
 
+import android.content.ContentResolver;
+import android.content.ContentValues;
 import android.content.Intent;
 import android.net.Uri;
+import android.os.Build;
+import android.os.Environment;
+import android.provider.MediaStore;
+import android.widget.Toast;
 
 import androidx.core.content.FileProvider;
 
@@ -16,6 +22,7 @@ import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileWriter;
 import java.io.IOException;
+import java.io.OutputStream;
 import java.nio.charset.StandardCharsets;
 
 @CapacitorPlugin(name = "CsvLog")
@@ -24,6 +31,10 @@ public class CsvLogPlugin extends Plugin {
     private File csvFile(String operator) {
         String safe = operator.replaceAll("[^a-zA-Z0-9_\\-]", "_");
         return new File(getContext().getFilesDir(), safe + "_cctv.csv");
+    }
+
+    private String safeFilename(String operator) {
+        return operator.replaceAll("[^a-zA-Z0-9_\\-]", "_") + "_cctv.csv";
     }
 
     @PluginMethod
@@ -65,9 +76,19 @@ public class CsvLogPlugin extends Plugin {
     public void share(PluginCall call) {
         String op = call.getString("operator", "log");
         String content = call.getString("content", "");
-        String safe = op.replaceAll("[^a-zA-Z0-9_\\-]", "_");
-        String filename = safe + "_cctv.csv";
+        String filename = safeFilename(op);
 
+        // Always save to public Documents folder first
+        try {
+            saveToDocuments(filename, content);
+            final String msg = "Saved to Documents/" + filename;
+            getActivity().runOnUiThread(() ->
+                Toast.makeText(getContext(), msg, Toast.LENGTH_LONG).show());
+        } catch (IOException e) {
+            // Non-fatal — proceed to share sheet even if Documents write fails
+        }
+
+        // Also open share sheet so they can send it somewhere
         File f = new File(getContext().getFilesDir(), filename);
         try (FileWriter fw = new FileWriter(f, false)) {
             fw.write(content);
@@ -90,6 +111,39 @@ public class CsvLogPlugin extends Plugin {
 
         getActivity().startActivity(Intent.createChooser(intent, "Share CSV"));
         call.resolve();
+    }
+
+    private void saveToDocuments(String filename, String content) throws IOException {
+        byte[] bytes = content.getBytes(StandardCharsets.UTF_8);
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            ContentResolver resolver = getContext().getContentResolver();
+            Uri collection = MediaStore.Files.getContentUri(MediaStore.VOLUME_EXTERNAL);
+
+            // Delete any existing file with the same name so we overwrite cleanly
+            resolver.delete(collection,
+                MediaStore.MediaColumns.DISPLAY_NAME + "=? AND " +
+                MediaStore.MediaColumns.RELATIVE_PATH + "=?",
+                new String[]{filename, Environment.DIRECTORY_DOCUMENTS + "/"});
+
+            ContentValues cv = new ContentValues();
+            cv.put(MediaStore.MediaColumns.DISPLAY_NAME, filename);
+            cv.put(MediaStore.MediaColumns.MIME_TYPE, "text/csv");
+            cv.put(MediaStore.MediaColumns.RELATIVE_PATH, Environment.DIRECTORY_DOCUMENTS);
+
+            Uri uri = resolver.insert(collection, cv);
+            if (uri == null) throw new IOException("MediaStore insert failed");
+            try (OutputStream os = resolver.openOutputStream(uri)) {
+                if (os == null) throw new IOException("openOutputStream returned null");
+                os.write(bytes);
+            }
+        } else {
+            // Android 9 and below — write directly (needs WRITE_EXTERNAL_STORAGE permission)
+            File dir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOCUMENTS);
+            dir.mkdirs();
+            try (FileWriter fw = new FileWriter(new File(dir, filename), false)) {
+                fw.write(content);
+            }
+        }
     }
 
     private static String readBytes(File f) throws IOException {
