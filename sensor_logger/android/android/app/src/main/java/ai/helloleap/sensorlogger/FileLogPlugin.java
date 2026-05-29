@@ -141,7 +141,6 @@ public class FileLogPlugin extends Plugin {
     }
 
     private void saveToDocuments(File src) throws IOException {
-        byte[] bytes = java.nio.file.Files.readAllBytes(src.toPath());
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
             ContentResolver resolver = getContext().getContentResolver();
             Uri col = MediaStore.Files.getContentUri(MediaStore.VOLUME_EXTERNAL);
@@ -155,14 +154,23 @@ public class FileLogPlugin extends Plugin {
             cv.put(MediaStore.MediaColumns.RELATIVE_PATH, Environment.DIRECTORY_DOCUMENTS);
             Uri uri = resolver.insert(col, cv);
             if (uri != null) {
-                try (OutputStream os = resolver.openOutputStream(uri)) {
-                    if (os != null) os.write(bytes);
+                try (OutputStream os = resolver.openOutputStream(uri);
+                     java.io.FileInputStream fis = new java.io.FileInputStream(src)) {
+                    if (os != null) {
+                        byte[] buf = new byte[8192]; int n;
+                        while ((n = fis.read(buf)) != -1) os.write(buf, 0, n);
+                    }
                 }
             }
         } else {
             File dir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOCUMENTS);
             dir.mkdirs();
-            java.nio.file.Files.write(new File(dir, src.getName()).toPath(), bytes);
+            File dst = new File(dir, src.getName());
+            try (java.io.FileInputStream fis = new java.io.FileInputStream(src);
+                 java.io.FileOutputStream fos = new java.io.FileOutputStream(dst)) {
+                byte[] buf = new byte[8192]; int n;
+                while ((n = fis.read(buf)) != -1) fos.write(buf, 0, n);
+            }
         }
     }
 }

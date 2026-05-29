@@ -79,18 +79,25 @@ public class SystemPlugin extends Plugin {
             getContext().getSystemService(Context.CONNECTIVITY_SERVICE);
         String netType = "NONE";
         if (cm != null) {
-            android.net.Network active = cm.getActiveNetwork();
-            if (active != null) {
-                NetworkCapabilities cap = cm.getNetworkCapabilities(active);
-                if (cap != null) {
-                    if (cap.hasTransport(NetworkCapabilities.TRANSPORT_WIFI))
-                        netType = "WIFI";
-                    else if (cap.hasTransport(NetworkCapabilities.TRANSPORT_CELLULAR))
-                        netType = "CELLULAR";
-                    else if (cap.hasTransport(NetworkCapabilities.TRANSPORT_ETHERNET))
-                        netType = "ETHERNET";
-                    else
-                        netType = "OTHER";
+            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.M) {
+                android.net.Network active = cm.getActiveNetwork();
+                if (active != null) {
+                    NetworkCapabilities cap = cm.getNetworkCapabilities(active);
+                    if (cap != null) {
+                        if (cap.hasTransport(NetworkCapabilities.TRANSPORT_WIFI))
+                            netType = "WIFI";
+                        else if (cap.hasTransport(NetworkCapabilities.TRANSPORT_CELLULAR))
+                            netType = "CELLULAR";
+                        else if (cap.hasTransport(NetworkCapabilities.TRANSPORT_ETHERNET))
+                            netType = "ETHERNET";
+                        else
+                            netType = "OTHER";
+                    }
+                }
+            } else {
+                android.net.NetworkInfo ni = cm.getActiveNetworkInfo();
+                if (ni != null && ni.isConnected()) {
+                    netType = ni.getTypeName();
                 }
             }
         }
