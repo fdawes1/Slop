@@ -282,7 +282,19 @@ function buildGrid() {
 function toggleSensor(key) {
   state.active.has(key) ? state.active.delete(key) : state.active.add(key);
   if (!state.active.has(key)) delete charts[key];
+  saveActiveProfile();
   buildGrid(); buildChipBar();
+}
+
+function saveActiveProfile() {
+  localStorage.setItem('sensor_active', JSON.stringify([...state.active]));
+}
+
+function loadActiveProfile() {
+  try {
+    const saved = localStorage.getItem('sensor_active');
+    if (saved) state.active = new Set(JSON.parse(saved));
+  } catch {}
 }
 
 // ── Data handling ──────────────────────────────────────────────────────────
@@ -465,6 +477,7 @@ async function installUpdate() {
 // ── Boot ───────────────────────────────────────────────────────────────────
 window.addEventListener('DOMContentLoaded', () => {
   applyTheme(localStorage.getItem('sensor_theme') === 'light');
+  loadActiveProfile();
   buildChipBar(); buildGrid();
   wirePlugins();
   requestAnimationFrame(function loop() {

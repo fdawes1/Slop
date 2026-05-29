@@ -110,8 +110,8 @@ public class FileLogPlugin extends Plugin {
             } catch (IOException ignored) {}
         });
 
-        // Save a copy to public Documents
-        try { saveToDocuments(f); } catch (IOException ignored) {}
+        // Save a copy to public Documents — catch all exceptions to prevent crashes
+        try { saveToDocuments(f); } catch (Exception ignored) {}
 
         Uri uri = FileProvider.getUriForFile(
             getContext(), getContext().getPackageName() + ".fileprovider", f);
