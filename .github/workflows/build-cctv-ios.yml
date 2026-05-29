@@ -1,0 +1,74 @@
+name: Build Leap CCTV iOS
+
+on:
+  push:
+    paths:
+      - 'hidrive_cctv_monitoring/ios/**'
+      - 'hidrive_cctv_monitoring/android/www/**'
+      - '.github/workflows/build-cctv-ios.yml'
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: macos-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install npm dependencies
+        run: cd hidrive_cctv_monitoring/ios && npm ci
+
+      - name: Generate Xcode project
+        run: cd hidrive_cctv_monitoring/ios && npx cap add ios
+
+      - name: Copy Swift plugins into Xcode project
+        run: cp hidrive_cctv_monitoring/ios/ios-plugins/*.swift hidrive_cctv_monitoring/ios/ios/App/App/
+
+      - name: Register plugins in Xcode project
+        run: |
+          gem install xcodeproj --quiet
+          cd hidrive_cctv_monitoring/ios && ruby scripts/add_plugins_to_xcode.rb
+
+      - name: Sync web assets
+        run: cd hidrive_cctv_monitoring/ios && npx cap sync ios
+
+      - name: Install CocoaPods dependencies
+        run: cd hidrive_cctv_monitoring/ios/ios/App && pod install
+
+      - name: Build (unsigned, simulator target)
+        run: |
+          cd hidrive_cctv_monitoring/ios/ios/App
+          xcodebuild \
+            -workspace App.xcworkspace \
+            -scheme App \
+            -configuration Debug \
+            -destination 'generic/platform=iOS Simulator' \
+            CODE_SIGNING_ALLOWED=NO \
+            build \
+            | xcpretty --simple --color || true
+
+      - name: Archive for device (unsigned)
+        run: |
+          cd hidrive_cctv_monitoring/ios/ios/App
+          xcodebuild \
+            -workspace App.xcworkspace \
+            -scheme App \
+            -configuration Debug \
+            -destination 'generic/platform=iOS' \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            EXPANDED_CODE_SIGN_IDENTITY=- \
+            archive \
+            -archivePath build/LeapCCTV.xcarchive \
+            | xcpretty --simple --color || true
+
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: leap-cctv-ios-debug-${{ github.run_number }}
+          path: hidrive_cctv_monitoring/ios/ios/App/build/
+          retention-days: 30

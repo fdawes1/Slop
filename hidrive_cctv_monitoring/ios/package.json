@@ -1,0 +1,12 @@
+{
+  "name": "leap-cctv-ios",
+  "version": "1.0.0",
+  "description": "Leap CCTV Review — iOS",
+  "dependencies": {
+    "@capacitor/core": "^6.0.0",
+    "@capacitor/ios": "^6.0.0"
+  },
+  "devDependencies": {
+    "@capacitor/cli": "^6.0.0"
+  }
+}

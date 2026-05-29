@@ -60,3 +60,7 @@ Reads from `/mnt/hidrive/public/PikPak*/YYYY/MM/DD/*.mp4` (local) or the same st
 ## Android
 
 A self-contained Android APK is available — see [`android/`](android/README.md). It connects directly to HiDrive WebDAV (no server needed), persists the CSV log to device storage across sessions, and exports via the Android share sheet.
+
+## iOS
+
+A self-contained iOS app is available — see [`ios/`](ios/README.md). Identical feature set to Android. Requires a one-time setup on a Mac with Xcode; web assets are shared with the Android app so changes to `android/www/index.html` apply to both.
