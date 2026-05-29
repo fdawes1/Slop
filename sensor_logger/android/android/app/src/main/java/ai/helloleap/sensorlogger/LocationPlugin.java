@@ -52,7 +52,7 @@ public class LocationPlugin extends Plugin implements LocationListener {
 
     private void doStart(PluginCall call) {
         long minTimeMs = call.getLong("minTimeMs", 1000L);
-        float minDistM = call.getFloat("minDistM", 0f);
+        float minDistM = call.getDouble("minDistM", 0.0).floatValue();
         try {
             if (locationManager.isProviderEnabled(LocationManager.GPS_PROVIDER)) {
                 locationManager.requestLocationUpdates(
