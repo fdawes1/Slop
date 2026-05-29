@@ -245,6 +245,20 @@
     .btn-undo:hover { border-color: var(--accent); color: var(--accent); }
     .key { font-size: 0.6rem; font-weight: 400; opacity: 0.5; }
 
+    .playback-wrap {
+      display: flex; align-items: center; gap: 0.4rem;
+    }
+    .playback-wrap button {
+      padding: 0.38rem 0.7rem; background: var(--bg-base);
+      border: 1.5px solid var(--border); border-radius: var(--radius);
+      font-size: 1rem; color: var(--text-2); cursor: pointer;
+      transition: background var(--transition), border-color var(--transition), color var(--transition);
+      line-height: 1;
+    }
+    .playback-wrap button:hover { border-color: var(--accent); color: var(--accent); }
+    .playback-wrap button:active { transform: scale(0.92); }
+    .btn-playpause { font-size: 1.2rem !important; padding: 0.38rem 0.9rem !important; }
+
     .speed-wrap {
       display: flex; align-items: center; gap: 0.3rem;
       font-family: 'Poppins', sans-serif; font-size: 0.75rem; font-weight: 700; color: var(--text-3);
@@ -365,6 +379,13 @@
           <button class="btn-reject" id="btn-reject" onclick="logEvent('Reject')">Reject <span class="key">[R]</span></button>
           <button class="btn-undo"   id="btn-undo"   onclick="undoEvent()">Undo   <span class="key">[U]</span></button>
         </div>
+        <div class="playback-wrap">
+          <button onclick="loadVideoAt(currentIdx - 1)" title="Previous [P]">⏮</button>
+          <button onclick="seekBy(-5)"                  title="−5s [←]">⏪</button>
+          <button class="btn-playpause" id="btn-playpause" onclick="togglePlayPause()">▶</button>
+          <button onclick="seekBy(5)"                   title="+5s [→]">⏩</button>
+          <button onclick="loadVideoAt(currentIdx + 1)" title="Next [N]">⏭</button>
+        </div>
         <div class="speed-wrap">
           <span>Speed</span>
           <button onclick="setSpeed(0.75)" data-speed="0.75">0.75×</button>
@@ -427,6 +448,8 @@ players.forEach((p, slot) => {
     if (slot !== activeSlot) return;
     loadVideoAt(currentIdx + 1);
   });
+  p.addEventListener('play',  () => { if (slot === activeSlot) updatePlayPauseBtn(false); });
+  p.addEventListener('pause', () => { if (slot === activeSlot) updatePlayPauseBtn(true); });
 });
 
 // ── Native proxy ───────────────────────────────────────────────────────────
@@ -717,6 +740,22 @@ function flashBtn(status) {
   btn.addEventListener('animationend', () => btn.classList.remove(cls), { once: true });
 }
 
+// ── Playback controls ──────────────────────────────────────────────────────
+function togglePlayPause() {
+  const p = activePlayer();
+  p.paused ? p.play() : p.pause();
+}
+
+function seekBy(secs) {
+  const p = activePlayer();
+  p.currentTime = Math.max(0, Math.min(p.duration || Infinity, p.currentTime + secs));
+}
+
+function updatePlayPauseBtn(paused) {
+  const btn = document.getElementById('btn-playpause');
+  if (btn) btn.textContent = paused ? '▶' : '⏸';
+}
+
 // ── Speed ──────────────────────────────────────────────────────────────────
 function setSpeed(rate) {
   players.forEach(p => { p.playbackRate = rate; });
@@ -788,13 +827,13 @@ async function promptNewSession() {
 
 // ── Download / Share ───────────────────────────────────────────────────────
 async function downloadCSV() {
-  const csv  = logRowsToCsv(logRows);
-  const name = `${operator || 'log'}_cctv.csv`;
-
-  if (navigator.canShare && navigator.canShare({ files: [new File([csv], name, { type: 'text/csv' })] })) {
-    await navigator.share({ files: [new File([csv], name, { type: 'text/csv' })] });
-  } else {
-    // Fallback: blob download
+  const csv = logRowsToCsv(logRows);
+  try {
+    const { CsvLog } = window.Capacitor.Plugins;
+    await CsvLog.share({ operator, content: csv });
+  } catch {
+    // Fallback for non-Android / dev browser
+    const name = `${operator || 'log'}_cctv.csv`;
     const a = Object.assign(document.createElement('a'), {
       href: URL.createObjectURL(new Blob([csv], { type: 'text/csv' })),
       download: name,
@@ -818,15 +857,15 @@ document.addEventListener('keydown', e => {
     case 'p': loadVideoAt(currentIdx - 1); break;
     case ' ':
       e.preventDefault();
-      p.paused ? p.play() : p.pause();
+      togglePlayPause();
       break;
     case 'arrowleft':
       e.preventDefault();
-      p.currentTime = Math.max(0, p.currentTime - (e.shiftKey ? 30 : 5));
+      seekBy(e.shiftKey ? -30 : -5);
       break;
     case 'arrowright':
       e.preventDefault();
-      p.currentTime = Math.min(p.duration || Infinity, p.currentTime + (e.shiftKey ? 30 : 5));
+      seekBy(e.shiftKey ? 30 : 5);
       break;
   }
 });
