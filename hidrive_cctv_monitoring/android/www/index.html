@@ -127,16 +127,36 @@
     #header-time { font-size: 0.72rem; color: var(--text-3); font-family: monospace; white-space: nowrap; }
     .spacer { flex: 1; }
     #event-count-header { font-size: 0.7rem; color: var(--text-3); font-family: 'Albert Sans', sans-serif; white-space: nowrap; }
-    .btn-download {
-      width: 36px; height: 36px; padding: 0;
+    .csv-menu-wrap { position: relative; flex-shrink: 0; }
+    .btn-csv {
+      height: 34px; padding: 0 0.65rem;
       background: transparent; color: var(--cyan);
       border: 1.5px solid var(--cyan); border-radius: var(--radius);
-      font-size: 1rem; cursor: pointer; flex-shrink: 0;
-      display: flex; align-items: center; justify-content: center;
+      font-family: 'Poppins', sans-serif; font-size: 0.72rem; font-weight: 700;
+      cursor: pointer; display: flex; align-items: center; gap: 0.3rem;
       transition: background var(--transition), color var(--transition);
       -webkit-tap-highlight-color: transparent;
+      white-space: nowrap;
     }
-    .btn-download:active { background: var(--cyan); color: #111; }
+    .btn-csv:active { background: var(--cyan); color: #111; }
+    .csv-dropdown {
+      display: none; position: absolute; top: calc(100% + 6px); right: 0;
+      background: var(--bg-surface); border: 1px solid var(--border);
+      border-radius: var(--radius); box-shadow: var(--shadow);
+      min-width: 160px; overflow: hidden; z-index: 60;
+    }
+    .csv-dropdown.open { display: block; }
+    .csv-dropdown button {
+      display: block; width: 100%; padding: 0.7rem 1rem;
+      background: transparent; border: none; text-align: left;
+      font-family: 'Albert Sans', sans-serif; font-size: 0.88rem;
+      color: var(--text-1); cursor: pointer;
+      transition: background var(--transition);
+      -webkit-tap-highlight-color: transparent;
+    }
+    .csv-dropdown button:active { background: var(--bg-base); }
+    .csv-dropdown .csv-divider { height: 1px; background: var(--border); margin: 0; }
+    .csv-dropdown .csv-danger { color: #f87171; }
 
     /* ── App layout ──────────────────────────────────────────────────── */
     #app { display: none; flex-direction: column; height: 100vh; overflow: hidden; position: relative; }
@@ -393,9 +413,6 @@
       </select>
     </div>
     <ul id="video-list"></ul>
-    <div class="drawer-actions">
-      <button class="btn-new-session" onclick="promptNewSession()">Clear log &amp; start new session</button>
-    </div>
   </nav>
 
   <!-- Header -->
@@ -406,7 +423,14 @@
     <span id="header-time">—</span>
     <span class="spacer"></span>
     <span id="event-count-header">0 events</span>
-    <button class="btn-download" onclick="downloadCSV()" title="Share CSV">↑</button>
+    <div class="csv-menu-wrap">
+      <button class="btn-csv" onclick="toggleCsvMenu()">CSV ▾</button>
+      <div class="csv-dropdown" id="csv-dropdown">
+        <button onclick="downloadCSV(); closeCsvMenu()">Share CSV</button>
+        <div class="csv-divider"></div>
+        <button class="csv-danger" onclick="promptNewSession(); closeCsvMenu()">New session</button>
+      </div>
+    </div>
   </header>
 
   <!-- Video -->
@@ -517,6 +541,16 @@ function closeSidebar() {
   document.getElementById('drawer').classList.remove('open');
   document.getElementById('drawer-backdrop').classList.remove('show');
 }
+
+function toggleCsvMenu() {
+  document.getElementById('csv-dropdown').classList.toggle('open');
+}
+function closeCsvMenu() {
+  document.getElementById('csv-dropdown').classList.remove('open');
+}
+document.addEventListener('click', e => {
+  if (!e.target.closest('.csv-menu-wrap')) closeCsvMenu();
+});
 
 // ── Native proxy ───────────────────────────────────────────────────────────
 async function startProxy(username, password) {
