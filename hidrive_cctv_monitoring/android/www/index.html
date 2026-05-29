@@ -137,6 +137,14 @@
       transition: background var(--transition), color var(--transition);
     }
     .btn-download:hover { background: var(--cyan); color: #111; }
+    .btn-new-session {
+      padding: 0.3rem 0.75rem;
+      background: transparent; color: #f87171;
+      border: 1.5px solid #f87171; border-radius: var(--radius);
+      font-family: 'Poppins', sans-serif; font-size: 0.75rem; font-weight: 700; cursor: pointer;
+      transition: background var(--transition), color var(--transition);
+    }
+    .btn-new-session:hover { background: #f87171; color: #111; }
 
     /* ── Layout ──────────────────────────────────────────────────────── */
     #app { display: none; flex-direction: column; flex: 1; overflow: hidden; }
@@ -315,6 +323,7 @@
     <span id="header-time">—</span>
     <span class="spacer"></span>
     <span id="event-count-header">0 events</span>
+    <button class="btn-new-session" onclick="promptNewSession()">New</button>
     <button class="btn-download" onclick="downloadCSV()">Share CSV</button>
   </header>
 
@@ -453,8 +462,11 @@ async function startSession() {
     localStorage.setItem('cctv_operator', name);
     localStorage.setItem('cctv_hd_user', hdUser);
 
-    // Restore log for this operator
-    try { logRows = JSON.parse(localStorage.getItem(`cctv_log_${operator}`) || '[]'); } catch { logRows = []; }
+    // Restore log — prefer device file, fall back to localStorage
+    logRows = await loadLogFromFile(name) || [];
+    if (logRows.length === 0) {
+      try { logRows = JSON.parse(localStorage.getItem(`cctv_log_${operator}`) || '[]'); } catch { logRows = []; }
+    }
     eventCount = logRows.length;
 
     document.getElementById('setup-modal').style.display = 'none';
@@ -669,6 +681,7 @@ function logEvent(status) {
   logRows.unshift(row);
   eventCount++;
   localStorage.setItem(`cctv_log_${operator}`, JSON.stringify(logRows));
+  saveLogToFile();
   renderLog();
   flashBtn(status);
 }
@@ -678,6 +691,7 @@ function undoEvent() {
   logRows.shift();
   eventCount = Math.max(0, eventCount - 1);
   localStorage.setItem(`cctv_log_${operator}`, JSON.stringify(logRows));
+  saveLogToFile();
   renderLog();
 }
 
@@ -711,15 +725,70 @@ function setSpeed(rate) {
   });
 }
 
-// ── Download / Share ───────────────────────────────────────────────────────
-async function downloadCSV() {
+// ── CSV file persistence ────────────────────────────────────────────────────
+function logRowsToCsv(rows) {
   const header = 'PPX,Date,Time,Index,Status,Product,Operator\n';
-  const rows   = [...logRows].reverse().map(r =>
+  const body = [...rows].reverse().map(r =>
     [r.ppx, r.date, r.hhmm, '', r.status, r.product, r.operator]
       .map(v => `"${(v||'').replace(/"/g,'""')}"`)
       .join(',')
   ).join('\n');
-  const csv  = header + rows;
+  return header + body;
+}
+
+function parseCsvLine(line) {
+  const result = [];
+  let inQuote = false, field = '';
+  for (let i = 0; i < line.length; i++) {
+    const c = line[i];
+    if (c === '"') {
+      if (inQuote && line[i+1] === '"') { field += '"'; i++; }
+      else inQuote = !inQuote;
+    } else if (c === ',' && !inQuote) { result.push(field); field = ''; }
+    else field += c;
+  }
+  result.push(field);
+  return result;
+}
+
+function csvToLogRows(csv) {
+  const lines = csv.trim().split('\n').slice(1).filter(Boolean);
+  return lines.reverse().map(line => {
+    const [ppx, date, hhmm, , status, product, op] = parseCsvLine(line);
+    return { ppx, date, hhmm, status, product, operator: op, unit: ppx, time: `${date}  ${hhmm}` };
+  });
+}
+
+async function loadLogFromFile(op) {
+  try {
+    const { CsvLog } = window.Capacitor.Plugins;
+    const { content } = await CsvLog.readAll({ operator: op });
+    return content ? csvToLogRows(content) : null;
+  } catch { return null; }
+}
+
+function saveLogToFile() {
+  try {
+    const { CsvLog } = window.Capacitor.Plugins;
+    CsvLog.writeAll({ operator, content: logRowsToCsv(logRows) });
+  } catch {}
+}
+
+async function promptNewSession() {
+  if (!confirm(`Clear all log data for ${operator}? This cannot be undone.`)) return;
+  logRows = [];
+  eventCount = 0;
+  localStorage.removeItem(`cctv_log_${operator}`);
+  try {
+    const { CsvLog } = window.Capacitor.Plugins;
+    await CsvLog.clear({ operator });
+  } catch {}
+  renderLog();
+}
+
+// ── Download / Share ───────────────────────────────────────────────────────
+async function downloadCSV() {
+  const csv  = logRowsToCsv(logRows);
   const name = `${operator || 'log'}_cctv.csv`;
 
   if (navigator.canShare && navigator.canShare({ files: [new File([csv], name, { type: 'text/csv' })] })) {
