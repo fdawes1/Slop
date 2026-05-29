@@ -1,0 +1,479 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <title>Sensor Logger</title>
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@600;700;800&family=Albert+Sans:wght@400;700&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+  <script src="build_config.js"></script>
+  <script>
+    if (!window.BUILD_NUMBER) window.BUILD_NUMBER = 0;
+    if (!window.GH_TOKEN)    window.GH_TOKEN    = '';
+    if (!window.GH_REPO)     window.GH_REPO     = 'fdawes1/slop';
+  </script>
+  <style>
+    :root {
+      --bg:#0d0d12; --surface:#16161f; --surface2:#1e1e2a;
+      --border:#25253a; --text1:#e8e8f4; --text2:#8888aa; --text3:#44445a;
+      --accent:#6472c8; --radius:10px; --trans:0.2s ease;
+      --mono:'JetBrains Mono',monospace;
+    }
+    html.light {
+      --bg:#f2f2f8; --surface:#ffffff; --surface2:#ebebf5;
+      --border:#d8d8ea; --text1:#1a1a2e; --text2:#5a5a7a; --text3:#aaaacc;
+    }
+    *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+    body{font-family:'Albert Sans',system-ui,sans-serif;background:var(--bg);color:var(--text1);height:100vh;display:flex;flex-direction:column;overflow:hidden}
+
+    /* Header */
+    header{display:flex;align-items:center;gap:0.5rem;padding:0 0.75rem;height:50px;flex-shrink:0;background:var(--surface);border-bottom:1px solid var(--border)}
+    .logo{display:flex;align-items:center;gap:0.4rem;margin-right:0.25rem}
+    .logo-dot{width:8px;height:8px;border-radius:50%;background:linear-gradient(135deg,var(--accent),#52C6DA);flex-shrink:0}
+    .logo-text{font-family:'Poppins',sans-serif;font-weight:800;font-size:0.85rem;white-space:nowrap}
+    .spacer{flex:1}
+    #rec-count{font-family:var(--mono);font-size:0.62rem;color:var(--text2);white-space:nowrap}
+    .btn-rec{display:flex;align-items:center;gap:0.35rem;padding:0 0.75rem;height:34px;background:transparent;border:1.5px solid var(--border);border-radius:var(--radius);font-family:'Poppins',sans-serif;font-size:0.72rem;font-weight:700;color:var(--text2);cursor:pointer;transition:all var(--trans);-webkit-tap-highlight-color:transparent}
+    .btn-rec .dot{width:7px;height:7px;border-radius:50%;background:var(--text3);transition:background var(--trans)}
+    .btn-rec.active{border-color:#f87171;color:#f87171}
+    .btn-rec.active .dot{background:#f87171;animation:pulse 1s ease-in-out infinite}
+    @keyframes pulse{0%,100%{opacity:1}50%{opacity:0.3}}
+    .icon-btn{width:34px;height:34px;background:transparent;border:none;font-size:1rem;color:var(--text2);cursor:pointer;display:flex;align-items:center;justify-content:center;border-radius:var(--radius);-webkit-tap-highlight-color:transparent}
+    .icon-btn:active{background:var(--surface2);color:var(--text1)}
+
+    /* Settings dropdown */
+    .settings-wrap{position:relative}
+    .settings-dd{display:none;position:absolute;top:calc(100% + 6px);right:0;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);min-width:215px;z-index:60;box-shadow:0 4px 20px rgba(0,0,0,0.4);overflow:hidden}
+    .settings-dd.open{display:block}
+    .dd-row{display:flex;align-items:center;justify-content:space-between;padding:0.55rem 1rem;font-size:0.82rem}
+    .dd-row .dd-label{color:var(--text2);font-size:0.72rem}
+    .dd-row .dd-val{font-family:'Poppins',sans-serif;font-weight:700;font-size:0.8rem}
+    .dd-sep{height:1px;background:var(--border)}
+    .dd-btn{display:block;width:100%;padding:0.6rem 1rem;background:transparent;border:none;text-align:left;font-family:'Albert Sans',sans-serif;font-size:0.85rem;color:var(--text1);cursor:pointer;-webkit-tap-highlight-color:transparent}
+    .dd-btn:active{background:var(--surface2)}
+    .dd-btn.primary{color:var(--accent);font-weight:700}
+    #dd-update-status{padding:0.4rem 1rem 0.2rem;font-size:0.75rem;color:var(--text2)}
+    .upd-ok{color:#4ade80!important}.upd-new{color:#facc15!important}.upd-err{color:#f87171!important}
+    .rate-row{display:flex;align-items:center;gap:0.25rem;padding:0.4rem 1rem}
+    .rate-row>span{font-size:0.72rem;color:var(--text2);margin-right:0.25rem}
+    .rate-btn{padding:0.2rem 0.45rem;background:var(--surface2);border:1.5px solid var(--border);border-radius:6px;font-size:0.68rem;font-weight:700;color:var(--text2);cursor:pointer;font-family:'Poppins',sans-serif;-webkit-tap-highlight-color:transparent}
+    .rate-btn.active{background:var(--accent);border-color:var(--accent);color:#fff}
+
+    /* Chip bar */
+    .chip-bar{display:flex;gap:0.4rem;padding:0.5rem 0.75rem;overflow-x:auto;flex-shrink:0;border-bottom:1px solid var(--border);-webkit-overflow-scrolling:touch;scrollbar-width:none}
+    .chip-bar::-webkit-scrollbar{display:none}
+    .chip{display:flex;align-items:center;gap:0.3rem;padding:0.3rem 0.65rem;border-radius:20px;flex-shrink:0;background:var(--surface2);border:1.5px solid var(--border);font-family:'Poppins',sans-serif;font-size:0.68rem;font-weight:700;color:var(--text2);cursor:pointer;transition:all var(--trans);-webkit-tap-highlight-color:transparent}
+    .chip-dot{width:6px;height:6px;border-radius:50%;background:currentColor}
+    .chip-val{font-family:var(--mono);font-size:0.6rem;opacity:0.75}
+
+    /* Card grid */
+    .grid{flex:1;overflow-y:auto;padding:0.6rem;display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:0.6rem;align-content:start}
+    .sensor-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;border-left:3px solid var(--accent)}
+    .card-head{display:flex;align-items:center;gap:0.5rem;padding:0.5rem 0.75rem 0.3rem}
+    .card-title{font-family:'Poppins',sans-serif;font-weight:700;font-size:0.8rem}
+    .card-unit{font-size:0.68rem;color:var(--text2);margin-left:auto}
+    .card-vals{display:flex;flex-wrap:wrap;gap:0.25rem 0.75rem;padding:0 0.75rem 0.4rem}
+    .val-row{display:flex;align-items:baseline;gap:0.3rem}
+    .val-axis{font-size:0.6rem;color:var(--text2);font-family:'Poppins',sans-serif;text-transform:uppercase}
+    .val-num{font-family:var(--mono);font-size:0.9rem;font-weight:700;min-width:68px}
+    .card-canvas{display:block;width:100%;height:80px}
+
+    .empty-state{grid-column:1/-1;text-align:center;padding:3rem 1rem;color:var(--text3);font-size:0.9rem}
+    .empty-state h3{font-family:'Poppins',sans-serif;margin-bottom:0.5rem;color:var(--text2)}
+
+    ::-webkit-scrollbar{width:4px}
+    ::-webkit-scrollbar-track{background:transparent}
+    ::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px}
+  </style>
+</head>
+<body>
+
+<header>
+  <div class="logo"><div class="logo-dot"></div><span class="logo-text">Sensor Logger</span></div>
+  <span class="spacer"></span>
+  <span id="rec-count"></span>
+  <button class="btn-rec" id="btn-rec" onclick="toggleRecord()">
+    <div class="dot"></div><span id="rec-label">Record</span>
+  </button>
+  <button class="icon-btn" id="btn-theme" onclick="toggleTheme()">🌙</button>
+  <div class="settings-wrap">
+    <button class="icon-btn" onclick="toggleSettings()">⚙</button>
+    <div class="settings-dd" id="settings-dd">
+      <div class="dd-row"><span class="dd-label">Build</span><span class="dd-val" id="dd-build">#0</span></div>
+      <div class="dd-sep"></div>
+      <div class="rate-row">
+        <span>Rate</span>
+        <button class="rate-btn" data-us="200000" onclick="setRate(this)">5 Hz</button>
+        <button class="rate-btn active" data-us="66667" onclick="setRate(this)">15 Hz</button>
+        <button class="rate-btn" data-us="20000" onclick="setRate(this)">50 Hz</button>
+      </div>
+      <div class="dd-sep"></div>
+      <div id="dd-update-status">Tap to check for updates</div>
+      <button class="dd-btn" onclick="checkUpdate()">Check for update</button>
+      <button class="dd-btn primary" id="dd-install-btn" style="display:none" onclick="installUpdate()">Install update</button>
+      <div class="dd-sep"></div>
+      <button class="dd-btn" onclick="shareLog()">Share last log</button>
+    </div>
+  </div>
+</header>
+
+<div class="chip-bar" id="chip-bar"></div>
+<div class="grid" id="grid"></div>
+
+<script src="capacitor.js"></script>
+<script>
+'use strict';
+
+// ── Sensor registry ────────────────────────────────────────────────────────
+const SENSORS = [
+  { key:'ACCELEROMETER',       label:'Accelerometer', unit:'m/s²',  axes:['X','Y','Z'],            color:'#6472c8' },
+  { key:'GYROSCOPE',           label:'Gyroscope',     unit:'rad/s', axes:['X','Y','Z'],            color:'#52C6DA' },
+  { key:'GRAVITY',             label:'Gravity',       unit:'m/s²',  axes:['X','Y','Z'],            color:'#63C2A2' },
+  { key:'LINEAR_ACCELERATION', label:'Lin. Accel',    unit:'m/s²',  axes:['X','Y','Z'],            color:'#f59e0b' },
+  { key:'MAGNETIC_FIELD',      label:'Magnetometer',  unit:'µT',    axes:['X','Y','Z'],            color:'#a78bfa' },
+  { key:'ROTATION_VECTOR',     label:'Rotation',      unit:'',      axes:['X','Y','Z','W'],        color:'#fb923c' },
+  { key:'LIGHT',               label:'Light',         unit:'lux',   axes:['lux'],                  color:'#facc15' },
+  { key:'PRESSURE',            label:'Pressure',      unit:'hPa',   axes:['hPa'],                  color:'#34d399' },
+  { key:'AMBIENT_TEMPERATURE', label:'Temperature',   unit:'°C',    axes:['°C'],                   color:'#f87171' },
+  { key:'RELATIVE_HUMIDITY',   label:'Humidity',      unit:'%RH',   axes:['%RH'],                  color:'#60a5fa' },
+  { key:'PROXIMITY',           label:'Proximity',     unit:'cm',    axes:['cm'],                   color:'#e879f9' },
+  { key:'STEP_COUNTER',        label:'Steps',         unit:'steps', axes:['steps'],                color:'#4ade80' },
+  { key:'AUDIO',               label:'Microphone',    unit:'dB SPL',axes:['dB'],                   color:'#00ffe7' },
+  { key:'GPS',                 label:'GPS',           unit:'',      axes:['lat','lon','acc','alt'], color:'#fb7185' },
+  { key:'BATTERY',             label:'Battery',       unit:'%',     axes:['%','charging'],         color:'#a3e635' },
+  { key:'NETWORK',             label:'Network',       unit:'',      axes:['type'],                 color:'#818cf8' },
+];
+const SENSOR_MAP = Object.fromEntries(SENSORS.map(s => [s.key, s]));
+
+// ── State ──────────────────────────────────────────────────────────────────
+const state = {
+  active:      new Set(['ACCELEROMETER','GYROSCOPE','AUDIO','GPS','BATTERY','LIGHT']),
+  available:   new Set(),
+  recording:   false,
+  rowsWritten: 0,
+  recStart:    0,
+  sessionName: '',
+  pendingUrl:  null,
+};
+const charts  = {};
+const lastVal = {};
+let stepBaseline = null;
+
+// ── Rolling chart ──────────────────────────────────────────────────────────
+class SensorChart {
+  constructor(canvas, { axes, color, windowMs = 30000 }) {
+    this.canvas = canvas; this.ctx = canvas.getContext('2d');
+    this.axes = axes; this.color = color; this.windowMs = windowMs;
+    this.N = 600; this.stride = 5;
+    this.buf = new Float64Array(this.N * this.stride);
+    this.head = 0; this.count = 0;
+  }
+  push(t, values) {
+    const i = (this.head % this.N) * this.stride;
+    this.buf[i] = t;
+    for (let a = 0; a < Math.min(values.length, 4); a++) this.buf[i + 1 + a] = values[a];
+    this.head++; this.count = Math.min(this.count + 1, this.N);
+  }
+  draw() {
+    const { canvas, ctx, axes, color, windowMs, N, stride, count } = this;
+    const W = canvas.offsetWidth, H = canvas.offsetHeight;
+    if (!W || !H || count < 2) return;
+    if (canvas.width !== W * devicePixelRatio) {
+      canvas.width = W * devicePixelRatio; canvas.height = H * devicePixelRatio;
+      ctx.scale(devicePixelRatio, devicePixelRatio);
+    }
+    ctx.clearRect(0, 0, W, H);
+    const cs = getComputedStyle(document.documentElement);
+    ctx.fillStyle = cs.getPropertyValue('--surface').trim();
+    ctx.fillRect(0, 0, W, H);
+
+    const headIdx = ((this.head - 1 + N) % N) * stride;
+    const tNow = this.buf[headIdx], tMin = tNow - windowMs;
+
+    let yMin = Infinity, yMax = -Infinity;
+    for (let i = 0; i < count; i++) {
+      const idx = ((this.head - count + i + N) % N) * stride;
+      if (this.buf[idx] < tMin) continue;
+      for (let a = 0; a < Math.min(axes.length, 4); a++) {
+        const v = this.buf[idx + 1 + a];
+        if (isFinite(v)) { if (v < yMin) yMin = v; if (v > yMax) yMax = v; }
+      }
+    }
+    if (!isFinite(yMin)) return;
+    if (yMin === yMax) { yMin -= 1; yMax += 1; }
+    const p = (yMax - yMin) * 0.08;
+    yMin -= p; yMax += p;
+
+    if (yMin <= 0 && 0 <= yMax) {
+      ctx.strokeStyle = 'rgba(255,255,255,0.07)'; ctx.lineWidth = 1;
+      const zy = H - ((0 - yMin) / (yMax - yMin)) * (H - 14) - 4;
+      ctx.beginPath(); ctx.moveTo(0, zy); ctx.lineTo(W, zy); ctx.stroke();
+    }
+
+    const axColors = axes.length === 1 ? [color] : ['#f87171','#4ade80','#60a5fa','#facc15'];
+    for (let a = 0; a < Math.min(axes.length, 4); a++) {
+      ctx.beginPath(); ctx.strokeStyle = axColors[a]; ctx.lineWidth = 1.5; ctx.lineJoin = 'round';
+      let first = true;
+      for (let i = 0; i < count; i++) {
+        const idx = ((this.head - count + i + N) % N) * stride;
+        const t = this.buf[idx]; if (t < tMin) continue;
+        const v = this.buf[idx + 1 + a]; if (!isFinite(v)) continue;
+        const x = ((t - tMin) / windowMs) * W;
+        const y = H - ((v - yMin) / (yMax - yMin)) * (H - 14) - 4;
+        first ? ctx.moveTo(x, y) : ctx.lineTo(x, y); first = false;
+      }
+      ctx.stroke();
+    }
+    const tc = cs.getPropertyValue('--text3').trim();
+    ctx.fillStyle = tc; ctx.font = '9px monospace';
+    ctx.fillText(fmt(yMax), 3, 10); ctx.fillText(fmt(yMin), 3, H - 2);
+  }
+}
+
+function fmt(v) {
+  if (!isFinite(v)) return '—';
+  const a = Math.abs(v);
+  return a >= 1000 ? v.toFixed(0) : a >= 100 ? v.toFixed(1) : a >= 10 ? v.toFixed(2) : v.toFixed(3);
+}
+
+// ── UI builders ────────────────────────────────────────────────────────────
+function buildChipBar() {
+  const bar = document.getElementById('chip-bar');
+  bar.innerHTML = '';
+  SENSORS.forEach(s => {
+    const active = state.active.has(s.key);
+    const chip = document.createElement('button');
+    chip.className = 'chip'; chip.id = 'chip-' + s.key; chip.dataset.key = s.key;
+    if (active) {
+      chip.style.cssText = `background:${s.color}22;border-color:${s.color}66;color:${s.color}`;
+    }
+    if (!state.available.has(s.key)) chip.style.opacity = '0.4';
+    chip.innerHTML = `<div class="chip-dot"></div>${s.label}<span class="chip-val" id="chipval-${s.key}"></span>`;
+    chip.onclick = () => toggleSensor(s.key);
+    bar.appendChild(chip);
+  });
+}
+
+function buildGrid() {
+  const grid = document.getElementById('grid');
+  grid.innerHTML = '';
+  let n = 0;
+  SENSORS.forEach(s => {
+    if (!state.active.has(s.key)) return;
+    n++;
+    const card = document.createElement('div');
+    card.className = 'sensor-card'; card.id = 'card-' + s.key;
+    card.style.borderLeftColor = s.color;
+    card.innerHTML = `
+      <div class="card-head">
+        <span class="card-title" style="color:${s.color}">${s.label}</span>
+        <span class="card-unit">${s.unit}</span>
+      </div>
+      <div class="card-vals">
+        ${s.axes.map(a => `<div class="val-row"><span class="val-axis">${a}</span><span class="val-num" id="v-${s.key}-${a}">—</span></div>`).join('')}
+      </div>
+      <canvas class="card-canvas" id="canvas-${s.key}"></canvas>`;
+    grid.appendChild(card);
+    const canvas = card.querySelector('canvas');
+    charts[s.key] = new SensorChart(canvas, { axes: s.axes, color: s.color });
+  });
+  if (!n) grid.innerHTML = '<div class="empty-state"><h3>No sensors selected</h3><p>Tap a chip above to add a sensor card.</p></div>';
+}
+
+function toggleSensor(key) {
+  state.active.has(key) ? state.active.delete(key) : state.active.add(key);
+  if (!state.active.has(key)) delete charts[key];
+  buildGrid(); buildChipBar();
+}
+
+// ── Data handling ──────────────────────────────────────────────────────────
+function onData(key, values, ts) {
+  lastVal[key] = values;
+  if (charts[key]) charts[key].push(ts, values);
+
+  const def = SENSOR_MAP[key];
+  if (def) {
+    def.axes.forEach((axis, i) => {
+      const el = document.getElementById(`v-${key}-${axis}`);
+      if (el) el.textContent = values[i] != null ? fmt(values[i]) : '—';
+    });
+    const cv = document.getElementById('chipval-' + key);
+    if (cv && values[0] != null) cv.textContent = ' ' + fmt(values[0]);
+  }
+
+  if (state.recording) {
+    const row = `${ts},${key},${values.map(v => v != null ? (+v).toFixed(5) : '').join(',')}\n`;
+    Plugins.FileLog && Plugins.FileLog.appendRow({ row });
+    state.rowsWritten++;
+    updateRecUI();
+  }
+}
+
+function updateRecUI() {
+  const el = document.getElementById('rec-count');
+  if (!state.recording) { el.textContent = ''; return; }
+  const s = Math.floor((Date.now() - state.recStart) / 1000);
+  el.textContent = `${state.rowsWritten} rows · ${String(Math.floor(s/60)).padStart(2,'0')}:${String(s%60).padStart(2,'0')}`;
+}
+
+// ── Plugin bridge ──────────────────────────────────────────────────────────
+const Plugins = (window.Capacitor || {}).Plugins || {};
+
+function wirePlugins() {
+  if (Plugins.Sensors) {
+    Plugins.Sensors.addListener('sensorData', e => {
+      let vals = Array.from(e.values || []);
+      if (e.sensorType === 'STEP_COUNTER') {
+        if (stepBaseline === null) stepBaseline = vals[0];
+        vals = [vals[0] - stepBaseline];
+      }
+      state.available.add(e.sensorType);
+      onData(e.sensorType, vals, e.timestamp || Date.now());
+    });
+    Plugins.Sensors.startAll({ rateUs: 66667 }).catch(() => {});
+    Plugins.Sensors.getAvailable().then(r => {
+      (r.sensors || []).forEach(k => state.available.add(k));
+      buildChipBar();
+    }).catch(() => {});
+  }
+  if (Plugins.Audio) {
+    Plugins.Audio.addListener('audioLevel', e => {
+      state.available.add('AUDIO');
+      onData('AUDIO', [e.db], e.timestamp || Date.now());
+    });
+    Plugins.Audio.start().catch(() => {});
+  }
+  if (Plugins.Location) {
+    Plugins.Location.addListener('locationUpdate', e => {
+      state.available.add('GPS');
+      onData('GPS', [e.lat, e.lon, e.accuracy, e.altitude], e.timestamp || Date.now());
+    });
+    Plugins.Location.start({ minTimeMs: 1000, minDistM: 0 }).catch(() => {});
+  }
+  if (Plugins.System) {
+    Plugins.System.addListener('systemData', e => {
+      state.available.add(e.sensorType);
+      if (e.sensorType === 'BATTERY') {
+        onData('BATTERY', [e.batteryPct, e.isCharging ? 1 : 0], e.timestamp || Date.now());
+      } else if (e.sensorType === 'NETWORK') {
+        const ti = { WIFI:1, CELLULAR:2, ETHERNET:3, NONE:0, OTHER:4 };
+        onData('NETWORK', [ti[e.networkType] || 0], e.timestamp || Date.now());
+        const el = document.getElementById('v-NETWORK-type');
+        if (el) el.textContent = e.networkType || '—';
+      }
+    });
+    Plugins.System.startPolling({ intervalMs: 5000 }).catch(() => {});
+  }
+}
+
+// ── Recording ──────────────────────────────────────────────────────────────
+let recTimer = null;
+
+async function toggleRecord() {
+  if (!state.recording) {
+    state.sessionName = 'sensor_' + Date.now();
+    state.rowsWritten = 0; state.recStart = Date.now(); stepBaseline = null;
+    if (Plugins.FileLog) await Plugins.FileLog.open({ session: state.sessionName }).catch(console.error);
+    state.recording = true;
+    document.getElementById('btn-rec').classList.add('active');
+    document.getElementById('rec-label').textContent = 'Stop';
+    recTimer = setInterval(() => {
+      updateRecUI();
+      Plugins.FileLog && Plugins.FileLog.flush().catch(() => {});
+    }, 1000);
+  } else {
+    state.recording = false; clearInterval(recTimer);
+    document.getElementById('btn-rec').classList.remove('active');
+    document.getElementById('rec-label').textContent = 'Record';
+    updateRecUI();
+    if (Plugins.FileLog) {
+      await Plugins.FileLog.flush().catch(() => {});
+      await Plugins.FileLog.close().catch(() => {});
+    }
+  }
+}
+
+async function shareLog() {
+  closeSettings();
+  if (!state.sessionName || !Plugins.FileLog) return;
+  Plugins.FileLog.share({ session: state.sessionName }).catch(e => alert('Share failed: ' + e.message));
+}
+
+// ── Rate ───────────────────────────────────────────────────────────────────
+function setRate(btn) {
+  document.querySelectorAll('.rate-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  Plugins.Sensors && Plugins.Sensors.setRate({ rateUs: +btn.dataset.us }).catch(() => {});
+}
+
+// ── Theme ──────────────────────────────────────────────────────────────────
+function applyTheme(light) {
+  document.documentElement.classList.toggle('light', light);
+  document.getElementById('btn-theme').textContent = light ? '☀' : '🌙';
+}
+function toggleTheme() {
+  const light = !document.documentElement.classList.contains('light');
+  localStorage.setItem('sensor_theme', light ? 'light' : 'dark');
+  applyTheme(light);
+}
+
+// ── Settings ───────────────────────────────────────────────────────────────
+function toggleSettings() {
+  const dd = document.getElementById('settings-dd');
+  dd.classList.toggle('open');
+  if (dd.classList.contains('open')) document.getElementById('dd-build').textContent = '#' + (window.BUILD_NUMBER || 0);
+}
+function closeSettings() { document.getElementById('settings-dd').classList.remove('open'); }
+document.addEventListener('click', e => { if (!e.target.closest('.settings-wrap')) closeSettings(); });
+
+// ── OTA update ─────────────────────────────────────────────────────────────
+async function checkUpdate() {
+  const el = document.getElementById('dd-update-status');
+  const btn = document.getElementById('dd-install-btn');
+  el.className = ''; el.textContent = 'Checking…'; btn.style.display = 'none'; state.pendingUrl = null;
+  try {
+    const res = await fetch(
+      `https://api.github.com/repos/${window.GH_REPO}/releases/tags/sensor-logger-latest`,
+      { headers: { Authorization: `Bearer ${window.GH_TOKEN}`, Accept: 'application/vnd.github+json' } }
+    );
+    if (!res.ok) throw new Error('API ' + res.status);
+    const rel = await res.json();
+    const latest = parseInt((rel.name || '').match(/\d+/)?.[0] || '0');
+    const curr = window.BUILD_NUMBER || 0;
+    if (latest > curr) {
+      const asset = rel.assets?.find(a => a.name.endsWith('.apk'));
+      if (!asset) throw new Error('No APK asset');
+      state.pendingUrl = asset.url;
+      el.className = 'upd-new'; el.textContent = `Update available: Build #${latest}`;
+      btn.style.display = 'block';
+    } else {
+      el.className = 'upd-ok'; el.textContent = `Up to date (Build #${curr})`;
+    }
+  } catch (e) { el.className = 'upd-err'; el.textContent = 'Check failed: ' + e.message; }
+}
+
+async function installUpdate() {
+  if (!state.pendingUrl || !Plugins.AppUpdate) return;
+  const el = document.getElementById('dd-update-status');
+  const btn = document.getElementById('dd-install-btn');
+  el.className = ''; el.textContent = 'Downloading…'; btn.disabled = true;
+  try {
+    await Plugins.AppUpdate.downloadAndInstall({ url: state.pendingUrl, token: window.GH_TOKEN });
+    el.textContent = 'Installing…';
+  } catch (e) { el.className = 'upd-err'; el.textContent = 'Failed: ' + e.message; btn.disabled = false; }
+}
+
+// ── Boot ───────────────────────────────────────────────────────────────────
+window.addEventListener('DOMContentLoaded', () => {
+  applyTheme(localStorage.getItem('sensor_theme') === 'light');
+  buildChipBar(); buildGrid();
+  wirePlugins();
+  requestAnimationFrame(function loop() {
+    for (const [key, chart] of Object.entries(charts)) {
+      if (state.active.has(key) && chart) chart.draw();
+    }
+    requestAnimationFrame(loop);
+  });
+});
+</script>
+</body>
+</html>

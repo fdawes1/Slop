@@ -1,0 +1,73 @@
+name: Build Sensor Logger Android APK
+
+on:
+  push:
+    paths:
+      - 'sensor_logger/android/**'
+      - '.github/workflows/build-sensor-logger-android.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install Capacitor dependencies
+        run: cd sensor_logger/android && npm ci
+
+      - name: Write build config
+        run: |
+          python3 -c "
+          import os
+          with open('sensor_logger/android/www/build_config.js', 'w') as f:
+              f.write('window.BUILD_NUMBER = {};\n'.format(os.environ['BUILD_NUMBER']))
+              f.write('window.GH_TOKEN = \"{}\";\n'.format(os.environ['GH_TOKEN']))
+              f.write('window.GH_REPO = \"fdawes1/slop\";\n')
+          "
+        env:
+          BUILD_NUMBER: ${{ github.run_number }}
+          GH_TOKEN: ${{ secrets.GH_RELEASES_TOKEN }}
+
+      - name: Sync web assets into Android project
+        run: cd sensor_logger/android && npx cap sync android
+
+      - name: Make gradlew executable
+        run: chmod +x sensor_logger/android/android/gradlew
+
+      - name: Build debug APK
+        run: |
+          cd sensor_logger/android/android
+          ./gradlew assembleDebug --no-daemon -PversionCode=${{ github.run_number }}
+
+      - name: Upload APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: sensor-logger-debug-${{ github.run_number }}
+          path: sensor_logger/android/android/app/build/outputs/apk/debug/app-debug.apk
+          retention-days: 30
+
+      - name: Publish rolling GitHub Release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          APK=sensor_logger/android/android/app/build/outputs/apk/debug/app-debug.apk
+          gh release delete sensor-logger-latest --yes 2>/dev/null || true
+          git push origin :refs/tags/sensor-logger-latest 2>/dev/null || true
+          gh release create sensor-logger-latest \
+            --title "Sensor Logger Build ${{ github.run_number }}" \
+            --notes "Build ${{ github.run_number }} · $(git rev-parse --short HEAD)" \
+            "$APK#sensor-logger.apk"

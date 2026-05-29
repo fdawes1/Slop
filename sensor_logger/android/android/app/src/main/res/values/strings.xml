@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Sensor Logger</string>
+    <string name="title_activity_main">Sensor Logger</string>
+    <string name="package_name">com.fdawes1.sensorlogger</string>
+    <string name="custom_url_scheme">com.fdawes1.sensorlogger</string>
+</resources>
