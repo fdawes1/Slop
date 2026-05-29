@@ -4,18 +4,19 @@ import android.util.Base64;
 import java.io.*;
 import java.net.*;
 import java.util.*;
-import javax.net.ssl.HttpsURLConnection;
+import java.util.concurrent.TimeUnit;
+import okhttp3.*;
 
 /**
  * Minimal HTTP proxy that forwards requests to HiDrive WebDAV with Basic Auth.
- * Runs on localhost so the WebView can load videos and list directories without
- * CORS or auth-header limitations.
+ * Uses OkHttp so non-standard methods like PROPFIND are supported.
  */
 public class HiDriveProxyServer {
     private static final String HIDRIVE_HOST = "https://webdav.hidrive.strato.com";
 
     private final int port;
     private final String authHeader;
+    private final OkHttpClient httpClient;
     private ServerSocket serverSocket;
     private volatile boolean running;
 
@@ -23,6 +24,11 @@ public class HiDriveProxyServer {
         this.port = port;
         String creds = username + ":" + password;
         this.authHeader = "Basic " + Base64.encodeToString(creds.getBytes(), Base64.NO_WRAP);
+        this.httpClient = new OkHttpClient.Builder()
+                .connectTimeout(15, TimeUnit.SECONDS)
+                .readTimeout(60, TimeUnit.SECONDS)
+                .followRedirects(true)
+                .build();
     }
 
     public void start() throws IOException {
@@ -36,6 +42,7 @@ public class HiDriveProxyServer {
     public void stop() {
         running = false;
         try { if (serverSocket != null) serverSocket.close(); } catch (IOException ignored) {}
+        httpClient.dispatcher().executorService().shutdown();
     }
 
     private void acceptLoop() {
@@ -82,62 +89,60 @@ public class HiDriveProxyServer {
                 return;
             }
 
-            // Forward to HiDrive
-            URL url = new URL(HIDRIVE_HOST + rawPath);
-            HttpURLConnection conn = (HttpURLConnection) url.openConnection();
-            conn.setRequestMethod(method);
-            conn.setRequestProperty("Authorization", authHeader);
-            conn.setRequestProperty("Connection", "close");
-            conn.setConnectTimeout(15000);
-            conn.setReadTimeout(60000);
-            conn.setInstanceFollowRedirects(true);
-
-            for (String h : Arrays.asList("depth", "range", "content-type")) {
-                String v = reqHeaders.get(h);
-                if (v != null) conn.setRequestProperty(h, v);
-            }
-
-            // Forward request body if present
+            // Read body if present
             int contentLen = 0;
             try { contentLen = Integer.parseInt(reqHeaders.getOrDefault("content-length", "0")); }
             catch (NumberFormatException ignored) {}
+            RequestBody body = null;
             if (contentLen > 0) {
-                conn.setDoOutput(true);
-                byte[] body = readFully(in, contentLen);
-                conn.getOutputStream().write(body);
+                byte[] bodyBytes = readFully(in, contentLen);
+                String ct = reqHeaders.getOrDefault("content-type", "application/octet-stream");
+                body = RequestBody.create(bodyBytes, MediaType.parse(ct));
             }
 
-            // Read upstream response
-            int status;
-            try { status = conn.getResponseCode(); } catch (IOException e) { status = 502; }
-            InputStream upstream = status >= 400 ? conn.getErrorStream() : conn.getInputStream();
+            // Build OkHttp request — supports PROPFIND and any other WebDAV method
+            Request.Builder reqBuilder = new Request.Builder()
+                    .url(HIDRIVE_HOST + rawPath)
+                    .method(method, body)
+                    .header("Authorization", authHeader)
+                    .header("Connection", "close");
 
-            // Write response to client
-            OutputStream out = client.getOutputStream();
-            StringBuilder hdr = new StringBuilder();
-            hdr.append("HTTP/1.1 ").append(status).append(" OK\r\n");
-            hdr.append("Access-Control-Allow-Origin: *\r\n");
-            hdr.append("Access-Control-Allow-Methods: GET, PROPFIND, OPTIONS\r\n");
-            hdr.append("Access-Control-Allow-Headers: Depth, Range, Content-Type\r\n");
-            hdr.append("Access-Control-Expose-Headers: Content-Range, Content-Length, Accept-Ranges\r\n");
-            hdr.append("Connection: close\r\n");
-
-            for (Map.Entry<String, List<String>> e : conn.getHeaderFields().entrySet()) {
-                String key = e.getKey();
-                if (key == null) continue;
-                String lk = key.toLowerCase();
-                if (lk.equals("transfer-encoding") || lk.equals("connection")) continue;
-                hdr.append(key).append(": ").append(String.join(", ", e.getValue())).append("\r\n");
+            for (String h : Arrays.asList("depth", "range", "content-type")) {
+                String v = reqHeaders.get(h);
+                if (v != null) reqBuilder.header(h, v);
             }
-            hdr.append("\r\n");
-            out.write(hdr.toString().getBytes("UTF-8"));
 
-            if (upstream != null) {
-                byte[] buf = new byte[65536];
-                int n;
-                while ((n = upstream.read(buf)) != -1) out.write(buf, 0, n);
+            try (Response response = httpClient.newCall(reqBuilder.build()).execute()) {
+                int status = response.code();
+                ResponseBody responseBody = response.body();
+
+                OutputStream out = client.getOutputStream();
+                StringBuilder hdr = new StringBuilder();
+                hdr.append("HTTP/1.1 ").append(status).append(" OK\r\n");
+                hdr.append("Access-Control-Allow-Origin: *\r\n");
+                hdr.append("Access-Control-Allow-Methods: GET, PROPFIND, OPTIONS\r\n");
+                hdr.append("Access-Control-Allow-Headers: Depth, Range, Content-Type\r\n");
+                hdr.append("Access-Control-Expose-Headers: Content-Range, Content-Length, Accept-Ranges\r\n");
+                hdr.append("Connection: close\r\n");
+
+                Headers respHeaders = response.headers();
+                for (int i = 0; i < respHeaders.size(); i++) {
+                    String key = respHeaders.name(i);
+                    String lk = key.toLowerCase();
+                    if (lk.equals("transfer-encoding") || lk.equals("connection")) continue;
+                    hdr.append(key).append(": ").append(respHeaders.value(i)).append("\r\n");
+                }
+                hdr.append("\r\n");
+                out.write(hdr.toString().getBytes("UTF-8"));
+
+                if (responseBody != null) {
+                    byte[] buf = new byte[65536];
+                    InputStream bodyStream = responseBody.byteStream();
+                    int n;
+                    while ((n = bodyStream.read(buf)) != -1) out.write(buf, 0, n);
+                }
+                out.flush();
             }
-            out.flush();
         }
     }
 
