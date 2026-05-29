@@ -1,10 +1,12 @@
 # Leap CCTV — Android (Capacitor)
 
-Android APK for Leap CCTV Review, packaged via Capacitor. The app is a WebView launcher that connects to a Leap CCTV server running on the local network or in the cloud.
+Self-contained Android APK for Leap CCTV review. No server required — the app connects directly to HiDrive WebDAV using a local proxy it runs on-device.
 
 ## How it works
 
-On first launch the app asks for the server URL (e.g. `http://192.168.1.x:5000`). It stores this in local storage and navigates to it — the full CCTV review UI then runs inside the WebView exactly as it does in a desktop browser. The URL is remembered across restarts.
+On launch the app asks for your HiDrive username, password, and operator name. It starts a local WebDAV proxy (port 18765) that forwards requests to `webdav.hidrive.strato.com` with Basic Auth, working around the WebView's CORS and custom-header restrictions. The full review UI runs inside the Capacitor WebView.
+
+Log data is written to a CSV file on the device after every event and loaded back on the next session — no data is lost when the app is closed.
 
 ## Get the APK
 
@@ -16,24 +18,47 @@ The APK is built automatically by GitHub Actions on every push to `hidrive_cctv_
 ## Install on device
 
 1. Enable *Install unknown apps* in Android settings
-2. Transfer the APK to your device and open it via the Files app
-3. On first launch, enter the server URL
+2. Transfer the APK and open it via the Files app
+3. Enter your HiDrive credentials and operator name on first launch — these are remembered across restarts
 
-## Run the server
+## Usage
 
-The server must be reachable from the device. Start it on any machine on the same network:
+| Key / Button | Action |
+|---|---|
+| Good / Bad / Issue / Reject | Log an event at the current frame |
+| Undo | Remove last entry |
+| N / P | Next / previous video |
+| Space | Play / pause |
+| ← / → | ±5 s |
+| Shift+← / → | ±30 s |
+| **Share CSV** | Export log via Android share sheet |
+| **New** | Clear log and start a fresh session (with confirmation) |
 
-```bash
-cd hidrive_cctv_monitoring
-pip install -r requirements.txt
-python app.py          # listens on 0.0.0.0:5000
+## Log persistence
+
+Each operator's log is saved to:
+
+```
+/sdcard/Android/data/com.fdawes1.cctv/files/{operator}_cctv.csv
 ```
 
-Then enter `http://<machine-ip>:5000` in the Android app.
+This file is written after every event and read back on the next session. It survives app restarts and device reboots. Accessible via any file manager app.
+
+**CSV columns:** `PPX, Date, Time, Index, Status, Product, Operator`
+
+Tapping **New** deletes the file and resets the in-app log. Use **Share CSV** first if you want to keep the data.
+
+## Native plugins
+
+| Plugin | Purpose |
+|---|---|
+| `HiDriveProxyPlugin` | Starts the on-device WebDAV proxy (OkHttp-based, supports PROPFIND) |
+| `CsvLogPlugin` | Reads, writes, and clears the per-operator CSV file on device storage |
 
 ## Build locally
 
 ```bash
+cd hidrive_cctv_monitoring/android
 npm install
 npx cap sync android
 cd android && ./gradlew assembleDebug

@@ -56,4 +56,4 @@ Reads from `/mnt/hidrive/public/PikPak*/YYYY/MM/DD/*.mp4` (local) or the same st
 
 ## Android
 
-An Android APK is available — see [`android/`](android/README.md). It wraps the web app in a Capacitor WebView and lets you configure the server URL on first launch.
+A self-contained Android APK is available — see [`android/`](android/README.md). It connects directly to HiDrive WebDAV (no server needed), persists the CSV log to device storage across sessions, and exports via the Android share sheet.
