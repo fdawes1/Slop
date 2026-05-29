@@ -91,8 +91,9 @@ public class SensorPlugin extends Plugin implements SensorEventListener {
 
         JSArray vals = new JSArray();
         // Clamp to 4 values max (rotation vector can have 5; we drop accuracy estimate)
+        // Use Double.valueOf() to call put(Object) — put(double) declares throws JSONException
         int len = Math.min(event.values.length, 4);
-        for (int i = 0; i < len; i++) vals.put(event.values[i]);
+        for (int i = 0; i < len; i++) vals.put(Double.valueOf(event.values[i]));
 
         JSObject data = new JSObject();
         data.put("sensorType", name);
