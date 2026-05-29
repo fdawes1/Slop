@@ -31,6 +31,32 @@
       --transition:  0.25s ease;
     }
 
+    /* ── Light theme ─────────────────────────────────────────────────── */
+    :root.light {
+      --bg-base:     #f0f0f6;
+      --bg-surface:  #ffffff;
+      --bg-sidebar:  #e8e8f2;
+      --bg-controls: #ffffff;
+      --bg-log:      #f0f0f6;
+      --bg-header:   #ffffff;
+      --text-header: #1a1a2e;
+      --text-1:      #1a1a2e;
+      --text-2:      #4a4a6a;
+      --text-3:      #8888aa;
+      --border:      #d4d4e4;
+      --accent:      #5060b8;
+      --accent-h:    #4050a8;
+      --cyan:        #1e8faa;
+      --teal:        #2a8a6a;
+      --shadow:      0 2px 14px rgba(0,0,0,0.08);
+      --shadow-modal:0 8px 40px rgba(0,0,0,0.18);
+    }
+    :root.light #setup-modal { background: rgba(180,180,210,0.75); }
+    :root.light .btn-good   { background: #15803d; }
+    :root.light .btn-bad    { background: #b91c1c; }
+    :root.light .btn-issue  { background: #b45309; }
+    :root.light .btn-reject { background: #6d28d9; }
+
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
     body {
@@ -122,6 +148,14 @@
       -webkit-tap-highlight-color: transparent;
     }
     .btn-menu:active { background: var(--bg-surface); }
+    .btn-theme {
+      width: 34px; height: 34px; background: transparent;
+      border: none; font-size: 1.1rem; cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      border-radius: var(--radius); flex-shrink: 0; opacity: 0.7;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .btn-theme:active { opacity: 1; background: var(--bg-surface); }
     #header-unit { font-size: 0.82rem; font-weight: 700; color: var(--cyan); font-family: 'Poppins', sans-serif; white-space: nowrap; }
     .h-sep { color: rgba(255,255,255,0.15); font-size: 0.75rem; }
     #header-time { font-size: 0.72rem; color: var(--text-3); font-family: monospace; white-space: nowrap; }
@@ -418,6 +452,7 @@
   <!-- Header -->
   <header>
     <button class="btn-menu" onclick="openSidebar()">☰</button>
+    <button class="btn-theme" id="btn-theme" onclick="toggleTheme()">🌙</button>
     <span id="header-unit">—</span>
     <span class="h-sep">·</span>
     <span id="header-time">—</span>
@@ -532,6 +567,17 @@ players.forEach((p, slot) => {
   p.addEventListener('pause', () => { if (slot === activeSlot) updatePlayPauseBtn(true); });
 });
 
+// ── Theme ──────────────────────────────────────────────────────────────────
+function applyTheme(light) {
+  document.documentElement.classList.toggle('light', light);
+  document.getElementById('btn-theme').textContent = light ? '☀' : '🌙';
+}
+function toggleTheme() {
+  const isLight = !document.documentElement.classList.contains('light');
+  localStorage.setItem('cctv_theme', isLight ? 'light' : 'dark');
+  applyTheme(isLight);
+}
+
 // ── Drawer ─────────────────────────────────────────────────────────────────
 function openSidebar() {
   document.getElementById('drawer').classList.add('open');
@@ -610,6 +656,8 @@ document.getElementById('operator-input').addEventListener('keydown', e => {
 });
 
 window.addEventListener('DOMContentLoaded', () => {
+  applyTheme(localStorage.getItem('cctv_theme') === 'light');
+
   const savedUser = localStorage.getItem('cctv_hd_user') || '';
   const savedOp   = localStorage.getItem('cctv_operator') || '';
   if (savedUser) document.getElementById('hd-user').value = savedUser;
