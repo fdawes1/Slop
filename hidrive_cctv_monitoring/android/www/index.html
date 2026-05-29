@@ -7,6 +7,13 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@600;700;800&family=Albert+Sans:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet">
+  <!-- Injected by CI; local dev gets the defaults below -->
+  <script src="build_config.js"></script>
+  <script>
+    if (typeof window.BUILD_NUMBER === 'undefined') window.BUILD_NUMBER = 0;
+    if (typeof window.GH_TOKEN    === 'undefined') window.GH_TOKEN    = '';
+    if (typeof window.GH_REPO     === 'undefined') window.GH_REPO     = 'fdawes1/slop';
+  </script>
   <style>
     /* ── Design tokens ───────────────────────────────────────────────── */
     :root {
@@ -426,6 +433,45 @@
     .flash-bad    { animation: flash-bad    0.18s ease; }
     .flash-issue  { animation: flash-issue  0.18s ease; }
     .flash-reject { animation: flash-reject 0.18s ease; }
+
+    /* ── Update banner ───────────────────────────────────────────────── */
+    #update-banner {
+      display: none; align-items: center; gap: 0.6rem;
+      padding: 0 0.75rem; height: 34px;
+      background: rgba(100,114,200,0.12);
+      border-bottom: 1px solid var(--accent);
+      flex-shrink: 0; font-size: 0.78rem;
+      color: var(--accent); font-family: 'Albert Sans', sans-serif;
+    }
+    #update-banner.show { display: flex; }
+    #btn-install-update {
+      height: 24px; padding: 0 0.7rem;
+      background: var(--accent); color: #fff;
+      border: none; border-radius: 6px;
+      font-family: 'Poppins', sans-serif; font-size: 0.68rem; font-weight: 700;
+      cursor: pointer; white-space: nowrap;
+      transition: background var(--transition);
+    }
+    #btn-install-update:active   { background: var(--accent-h); }
+    #btn-install-update:disabled { opacity: 0.6; cursor: default; }
+    .btn-dismiss-update {
+      background: transparent; border: none; color: var(--text-3);
+      font-size: 0.9rem; cursor: pointer; padding: 0 0.1rem; margin-left: auto;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    /* ── Check-updates drawer button ─────────────────────────────────── */
+    .btn-check-updates {
+      width: 100%; padding: 0.6rem; margin-bottom: 0.5rem;
+      background: transparent; color: var(--text-2);
+      border: 1.5px solid var(--border); border-radius: var(--radius);
+      font-family: 'Poppins', sans-serif; font-size: 0.82rem; font-weight: 700;
+      cursor: pointer;
+      transition: border-color var(--transition), color var(--transition);
+      -webkit-tap-highlight-color: transparent;
+    }
+    .btn-check-updates:active   { border-color: var(--accent); color: var(--accent); }
+    .btn-check-updates:disabled { opacity: 0.5; cursor: default; }
   </style>
 </head>
 <body>
@@ -470,6 +516,10 @@
       </select>
     </div>
     <ul id="video-list"></ul>
+    <div class="drawer-actions">
+      <button class="btn-check-updates" id="btn-check-updates" onclick="checkForUpdatesManual()">↑ Check for updates</button>
+      <button class="btn-new-session" onclick="promptNewSession(); closeSidebar()">New session</button>
+    </div>
   </nav>
 
   <!-- Header -->
@@ -490,6 +540,13 @@
       </div>
     </div>
   </header>
+
+  <!-- Update banner (shown when a newer build is available) -->
+  <div id="update-banner">
+    <span id="update-msg">Update available</span>
+    <button id="btn-install-update" onclick="installUpdate()">Install</button>
+    <button class="btn-dismiss-update" onclick="dismissUpdate()">✕</button>
+  </div>
 
   <!-- Video -->
   <div class="player-wrap" id="player-wrap">
@@ -1125,6 +1182,79 @@ function fmtTs(dt) {
 function escHtml(s) {
   return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
 }
+
+// ── Auto-update ────────────────────────────────────────────────────────────
+let pendingUpdateUrl = null;
+
+async function fetchLatestRelease() {
+  const headers = { 'Accept': 'application/vnd.github+json' };
+  if (window.GH_TOKEN) headers['Authorization'] = `Bearer ${window.GH_TOKEN}`;
+  const resp = await fetch(
+    `https://api.github.com/repos/${window.GH_REPO}/releases/tags/cctv-android-latest`,
+    { headers }
+  );
+  if (!resp.ok) throw new Error(`GitHub API ${resp.status}`);
+  return resp.json();
+}
+
+async function checkForUpdates(silent) {
+  if (!window.GH_TOKEN) {
+    if (!silent) alert('Update check unavailable: local/dev build.');
+    return;
+  }
+  try {
+    const release = await fetchLatestRelease();
+    const match = (release.name || '').match(/(\d+)$/);
+    const latestBuild = match ? parseInt(match[1]) : 0;
+    if (latestBuild > window.BUILD_NUMBER) {
+      const asset = release.assets.find(a => a.name.endsWith('.apk'));
+      if (!asset) { if (!silent) alert('Release found but no APK attached.'); return; }
+      pendingUpdateUrl = asset.url;
+      document.getElementById('update-msg').textContent =
+        `Update available — Build #${latestBuild} (you have #${window.BUILD_NUMBER})`;
+      document.getElementById('update-banner').classList.add('show');
+    } else if (!silent) {
+      alert(`You’re on the latest build (#${window.BUILD_NUMBER}).`);
+    }
+  } catch (e) {
+    if (!silent) alert('Update check failed: ' + e.message);
+  }
+}
+
+async function checkForUpdatesManual() {
+  const btn = document.getElementById('btn-check-updates');
+  const prev = btn.textContent;
+  btn.textContent = 'Checking…';
+  btn.disabled = true;
+  try {
+    await checkForUpdates(false);
+  } finally {
+    btn.textContent = prev;
+    btn.disabled = false;
+  }
+}
+
+async function installUpdate() {
+  if (!pendingUpdateUrl) return;
+  const btn = document.getElementById('btn-install-update');
+  btn.textContent = 'Downloading…';
+  btn.disabled = true;
+  try {
+    const { AppUpdate } = window.Capacitor.Plugins;
+    await AppUpdate.downloadAndInstall({ url: pendingUpdateUrl, token: window.GH_TOKEN });
+  } catch (e) {
+    alert('Install failed: ' + e.message);
+    btn.textContent = 'Install';
+    btn.disabled = false;
+  }
+}
+
+function dismissUpdate() {
+  document.getElementById('update-banner').classList.remove('show');
+}
+
+// Silent background check 4 s after page load
+setTimeout(() => checkForUpdates(true), 4000);
 </script>
 </body>
 </html>

@@ -8,6 +8,7 @@ public class MainActivity extends BridgeActivity {
     public void onCreate(Bundle savedInstanceState) {
         registerPlugin(HiDriveProxyPlugin.class);
         registerPlugin(CsvLogPlugin.class);
+        registerPlugin(UpdatePlugin.class);
         super.onCreate(savedInstanceState);
     }
 }
