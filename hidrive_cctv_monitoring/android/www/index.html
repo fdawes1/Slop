@@ -337,6 +337,23 @@
     }
     .product-bar input:focus { border-color: var(--accent); }
 
+    /* ── Scrubber ────────────────────────────────────────────────────── */
+    .scrubber-bar {
+      display: flex; align-items: center; gap: 0.5rem;
+      padding: 0 0.75rem; height: 34px;
+      background: var(--bg-controls); border-top: 1px solid var(--border);
+      flex-shrink: 0;
+    }
+    #scrubber {
+      flex: 1; height: 4px; cursor: pointer;
+      accent-color: var(--accent);
+      -webkit-tap-highlight-color: transparent;
+    }
+    .scrubber-time {
+      font-family: monospace; font-size: 0.68rem; color: var(--text-3);
+      white-space: nowrap; min-width: 80px; text-align: right;
+    }
+
     /* ── Action grid ─────────────────────────────────────────────────── */
     .action-grid {
       display: grid; grid-template-columns: 1fr 1fr;
@@ -350,8 +367,14 @@
       transition: filter 0.1s, transform 0.08s;
       -webkit-tap-highlight-color: transparent;
       letter-spacing: 0.01em;
+      position: relative;
     }
     .action-grid .log-btn:active { transform: scale(0.94); filter: brightness(1.15); }
+    .btn-badge {
+      position: absolute; top: 5px; right: 8px;
+      font-size: 0.65rem; font-weight: 700; opacity: 0.75;
+      font-family: 'Poppins', sans-serif; pointer-events: none;
+    }
     .btn-good   { background: #16a34a; color: #fff; }
     .btn-bad    { background: #dc2626; color: #fff; }
     .btn-issue  { background: #d97706; color: #fff; }
@@ -477,6 +500,12 @@
     <span class="no-video-msg" id="no-video-msg">Tap ☰ to select footage</span>
   </div>
 
+  <!-- Scrubber -->
+  <div class="scrubber-bar">
+    <input type="range" id="scrubber" min="0" max="100" value="0" step="0.1">
+    <span class="scrubber-time" id="scrubber-time">—</span>
+  </div>
+
   <!-- Playback bar -->
   <div class="playback-bar">
     <button onclick="loadVideoAt(currentIdx - 1)">⏮</button>
@@ -501,10 +530,10 @@
 
   <!-- Action buttons -->
   <div class="action-grid">
-    <button class="log-btn btn-good"   id="btn-good"   onclick="logEvent('Good')">Good</button>
-    <button class="log-btn btn-bad"    id="btn-bad"    onclick="logEvent('Bad')">Bad</button>
-    <button class="log-btn btn-issue"  id="btn-issue"  onclick="logEvent('Issue')">Issue</button>
-    <button class="log-btn btn-reject" id="btn-reject" onclick="logEvent('Reject')">Reject</button>
+    <button class="log-btn btn-good"   id="btn-good"   onclick="logEvent('Good')">Good<span class="btn-badge" id="badge-good"></span></button>
+    <button class="log-btn btn-bad"    id="btn-bad"    onclick="logEvent('Bad')">Bad<span class="btn-badge" id="badge-bad"></span></button>
+    <button class="log-btn btn-issue"  id="btn-issue"  onclick="logEvent('Issue')">Issue<span class="btn-badge" id="badge-issue"></span></button>
+    <button class="log-btn btn-reject" id="btn-reject" onclick="logEvent('Reject')">Reject<span class="btn-badge" id="badge-reject"></span></button>
   </div>
   <div class="btn-undo-row">
     <button class="btn-undo" id="btn-undo" onclick="undoEvent()">↩ Undo</button>
@@ -533,6 +562,8 @@ let currentIdx  = -1;
 let currentUnit = null;
 let logRows     = [];
 let eventCount  = 0;
+const sessionCounts = { Good: 0, Bad: 0, Issue: 0, Reject: 0 };
+let scrubberDragging = false;
 
 // ── Dual-player ────────────────────────────────────────────────────────────
 const players  = [document.getElementById('player-a'), document.getElementById('player-b')];
@@ -549,6 +580,17 @@ players.forEach((p, slot) => {
     const real  = new Date(start.getTime() + p.currentTime * 1000);
     document.getElementById('ts-overlay').textContent  = fmtTs(real);
     document.getElementById('header-time').textContent = fmtTs(real);
+    if (!scrubberDragging && p.duration) {
+      document.getElementById('scrubber').value = (p.currentTime / p.duration) * 100;
+      document.getElementById('scrubber-time').textContent =
+        `${fmtSecs(p.currentTime)} / ${fmtSecs(p.duration)}`;
+    }
+  });
+  p.addEventListener('loadedmetadata', () => {
+    if (slot !== activeSlot) return;
+    document.getElementById('scrubber').value = 0;
+    document.getElementById('scrubber-time').textContent =
+      `0:00 / ${fmtSecs(p.duration)}`;
   });
   p.addEventListener('waiting', () => {
     if (slot !== activeSlot) return;
@@ -850,19 +892,25 @@ function logEvent(status) {
 
   logRows.unshift(row);
   eventCount++;
+  sessionCounts[status] = (sessionCounts[status] || 0) + 1;
   localStorage.setItem(`cctv_log_${operator}`, JSON.stringify(logRows));
   saveLogToFile();
+  vibrate(30);
   renderLog();
+  renderBadges();
   flashBtn(status);
 }
 
 function undoEvent() {
   if (logRows.length === 0) return;
-  logRows.shift();
+  const removed = logRows.shift();
   eventCount = Math.max(0, eventCount - 1);
+  if (removed && sessionCounts[removed.status] > 0) sessionCounts[removed.status]--;
   localStorage.setItem(`cctv_log_${operator}`, JSON.stringify(logRows));
   saveLogToFile();
+  vibrate(15);
   renderLog();
+  renderBadges();
 }
 
 function renderLog() {
@@ -886,6 +934,47 @@ function flashBtn(status) {
   btn.classList.add(cls);
   btn.addEventListener('animationend', () => btn.classList.remove(cls), { once: true });
 }
+
+// ── Haptic ─────────────────────────────────────────────────────────────────
+function vibrate(ms) {
+  try { navigator.vibrate && navigator.vibrate(ms); } catch {}
+}
+
+// ── Session badges ──────────────────────────────────────────────────────────
+function renderBadges() {
+  ['Good','Bad','Issue','Reject'].forEach(s => {
+    const el = document.getElementById(`badge-${s.toLowerCase()}`);
+    if (el) el.textContent = sessionCounts[s] > 0 ? sessionCounts[s] : '';
+  });
+}
+
+// ── Scrubber ────────────────────────────────────────────────────────────────
+function fmtSecs(s) {
+  if (!s || isNaN(s)) return '0:00';
+  const m = Math.floor(s / 60), sec = Math.floor(s % 60);
+  return `${m}:${sec.toString().padStart(2, '0')}`;
+}
+
+(function wireScrubber() {
+  const sc = document.getElementById('scrubber');
+  sc.addEventListener('mousedown',  () => { scrubberDragging = true; });
+  sc.addEventListener('touchstart', () => { scrubberDragging = true; }, { passive: true });
+  sc.addEventListener('input', () => {
+    const p = activePlayer();
+    if (p && p.duration) {
+      const t = (sc.value / 100) * p.duration;
+      document.getElementById('scrubber-time').textContent =
+        `${fmtSecs(t)} / ${fmtSecs(p.duration)}`;
+    }
+  });
+  sc.addEventListener('change', () => {
+    const p = activePlayer();
+    if (p && p.duration) p.currentTime = (sc.value / 100) * p.duration;
+    scrubberDragging = false;
+  });
+  sc.addEventListener('mouseup',  () => { scrubberDragging = false; });
+  sc.addEventListener('touchend', () => { scrubberDragging = false; });
+})();
 
 // ── Playback controls ──────────────────────────────────────────────────────
 function togglePlayPause() {
@@ -964,12 +1053,14 @@ async function promptNewSession() {
   if (!confirm(`Clear all log data for ${operator}? This cannot be undone.`)) return;
   logRows = [];
   eventCount = 0;
+  Object.keys(sessionCounts).forEach(k => sessionCounts[k] = 0);
   localStorage.removeItem(`cctv_log_${operator}`);
   try {
     const { CsvLog } = window.Capacitor.Plugins;
     await CsvLog.clear({ operator });
   } catch {}
   renderLog();
+  renderBadges();
 }
 
 // ── Download / Share ───────────────────────────────────────────────────────
