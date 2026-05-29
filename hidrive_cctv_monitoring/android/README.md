@@ -23,37 +23,39 @@ The APK is built automatically by GitHub Actions on every push to `hidrive_cctv_
 
 ## Usage
 
-| Key / Button | Action |
+| Button | Action |
 |---|---|
 | Good / Bad / Issue / Reject | Log an event at the current frame |
-| Undo | Remove last entry |
-| N / P | Next / previous video |
-| Space | Play / pause |
-| ← / → | ±5 s |
-| Shift+← / → | ±30 s |
-| **Share CSV** | Export log via Android share sheet |
-| **New** | Clear log and start a fresh session (with confirmation) |
+| ↩ Undo | Remove last entry |
+| ⏮ ⏭ | Previous / next video (auto-closes drawer) |
+| ⏪ ⏩ | Seek ±5 s |
+| ▶ / ⏸ | Play / pause |
+| Scrubber | Drag to seek; shows `current / total` time |
+| Speed buttons | 0.75× / 1× / 1.5× / 2× |
+| **CSV ▾** | Opens dropdown: **Share CSV** or **New session** |
+| 🌙 / ☀ | Toggle dark / light mode |
+| ☰ | Open footage drawer (unit, date, video list) |
 
 ## Log persistence
 
-Each operator's log is saved to:
+Each operator's log is saved to device internal storage after every event and reloaded on next launch. Tapping **CSV ▾ → Share CSV**:
+- Writes the file to the public **Documents** folder (`Documents/{operator}_cctv.csv`) — a toast confirms the path
+- Opens the Android share sheet so you can email / upload it
 
-```
-/sdcard/Android/data/com.fdawes1.cctv/files/{operator}_cctv.csv
-```
-
-This file is written after every event and read back on the next session. It survives app restarts and device reboots. Accessible via any file manager app.
+Tapping **New session** clears the in-app log and the saved file (with confirmation).
 
 **CSV columns:** `PPX, Date, Time, Index, Status, Product, Operator`
 
-Tapping **New** deletes the file and resets the in-app log. Use **Share CSV** first if you want to keep the data.
+## Session badges
+
+Each action button shows a running count of how many events of that type you've logged this session. Resets on New Session.
 
 ## Native plugins
 
 | Plugin | Purpose |
 |---|---|
 | `HiDriveProxyPlugin` | Starts the on-device WebDAV proxy (OkHttp-based, supports PROPFIND) |
-| `CsvLogPlugin` | Reads, writes, and clears the per-operator CSV file on device storage |
+| `CsvLogPlugin` | Read/write/clear CSV in internal storage; save to Documents; native share intent via FileProvider |
 
 ## Build locally
 

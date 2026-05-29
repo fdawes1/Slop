@@ -356,6 +356,7 @@
       font-size: 0.85rem; font-weight: 800; cursor: pointer;
       transition: filter 0.12s, transform 0.1s, box-shadow 0.12s;
       box-shadow: 0 2px 6px rgba(0,0,0,0.15);
+      position: relative;
     }
     .action-btns button:hover  { filter: brightness(1.1); box-shadow: 0 4px 10px rgba(0,0,0,0.2); }
     .action-btns button:active { transform: scale(0.94); }
@@ -364,6 +365,38 @@
     .btn-issue  { background: #d97706; color: #fff; }
     .btn-reject { background: #7c3aed; color: #fff; }
     .key { font-size: 0.62rem; font-weight: 400; opacity: 0.55; }
+    .btn-badge {
+      position: absolute; top: 3px; right: 6px;
+      font-size: 0.6rem; font-weight: 700; opacity: 0.8;
+      font-family: 'Poppins', sans-serif; pointer-events: none;
+    }
+
+    /* ── Scrubber ────────────────────────────────────────────────── */
+    .scrubber-bar {
+      display: flex; align-items: center; gap: 0.6rem;
+      padding: 0 1rem; height: 34px;
+      background: var(--bg-controls);
+      border-top: 1px solid var(--border);
+      flex-shrink: 0;
+      transition: background var(--transition), border-color var(--transition);
+    }
+    #scrubber { flex: 1; height: 4px; cursor: pointer; accent-color: var(--accent); }
+    .scrubber-time {
+      font-family: monospace; font-size: 0.7rem; color: var(--text-3);
+      white-space: nowrap; min-width: 90px; text-align: right;
+    }
+
+    /* ── Playback buttons ────────────────────────────────────────── */
+    .playback-wrap { display: flex; align-items: center; gap: 0.3rem; }
+    .playback-wrap button {
+      padding: 0.28rem 0.55rem; height: 30px;
+      background: var(--bg-base); border: 1.5px solid var(--border);
+      border-radius: var(--radius); font-size: 0.9rem; color: var(--text-2);
+      cursor: pointer; line-height: 1;
+      transition: border-color var(--transition), color var(--transition), background var(--transition);
+    }
+    .playback-wrap button:hover { border-color: var(--accent); color: var(--accent); }
+    .btn-playpause { font-size: 1rem !important; padding: 0.28rem 0.65rem !important; }
 
     .speed-wrap {
       display: flex; align-items: center; gap: 0.3rem;
@@ -526,6 +559,11 @@
         <span class="no-video-msg" id="no-video-msg">Select a video from the sidebar</span>
       </div>
 
+      <div class="scrubber-bar">
+        <input type="range" id="scrubber" min="0" max="100" value="0" step="0.1">
+        <span class="scrubber-time" id="scrubber-time">—</span>
+      </div>
+
       <div class="controls">
         <div class="product-wrap">
           <span>Product</span>
@@ -533,20 +571,27 @@
         </div>
         <div class="action-btns">
           <button class="btn-good"  id="btn-good"  onclick="logEvent('Good')">
-            Good <span class="key">[G]</span>
+            Good <span class="key">[G]</span><span class="btn-badge" id="badge-good"></span>
           </button>
           <button class="btn-bad"   id="btn-bad"   onclick="logEvent('Bad')">
-            Bad <span class="key">[B]</span>
+            Bad <span class="key">[B]</span><span class="btn-badge" id="badge-bad"></span>
           </button>
           <button class="btn-issue" id="btn-issue" onclick="logEvent('Issue')">
-            Issue <span class="key">[I]</span>
+            Issue <span class="key">[I]</span><span class="btn-badge" id="badge-issue"></span>
           </button>
           <button class="btn-reject" id="btn-reject" onclick="logEvent('Reject')">
-            Reject <span class="key">[R]</span>
+            Reject <span class="key">[R]</span><span class="btn-badge" id="badge-reject"></span>
           </button>
           <button class="btn-undo" id="btn-undo" onclick="undoEvent()">
             Undo <span class="key">[U]</span>
           </button>
+        </div>
+        <div class="playback-wrap">
+          <button onclick="loadVideoAt(currentIdx - 1)" title="Previous [P]">⏮</button>
+          <button onclick="seekBy(-5)" title="−5s [←]">⏪</button>
+          <button class="btn-playpause" id="btn-playpause" onclick="togglePlayPause()">▶</button>
+          <button onclick="seekBy(5)" title="+5s [→]">⏩</button>
+          <button onclick="loadVideoAt(currentIdx + 1)" title="Next [N]">⏭</button>
         </div>
         <div class="speed-wrap">
           <span>Speed</span>
@@ -581,6 +626,8 @@ let currentIdx  = -1;
 let currentUnit = null;
 let eventCount  = 0;
 let logRows     = [];
+const sessionCounts = { Good: 0, Bad: 0, Issue: 0, Reject: 0 };
+let scrubberDragging = false;
 
 // ── Dual-player preloading ─────────────────────────────────────────────────
 const players  = [
@@ -600,6 +647,16 @@ players.forEach((p, slot) => {
     const real  = new Date(start.getTime() + p.currentTime * 1000);
     document.getElementById('ts-overlay').textContent  = fmtTs(real);
     document.getElementById('header-time').textContent = fmtTs(real);
+    if (!scrubberDragging && p.duration) {
+      document.getElementById('scrubber').value = (p.currentTime / p.duration) * 100;
+      document.getElementById('scrubber-time').textContent =
+        `${fmtSecs(p.currentTime)} / ${fmtSecs(p.duration)}`;
+    }
+  });
+  p.addEventListener('loadedmetadata', () => {
+    if (slot !== activeSlot) return;
+    document.getElementById('scrubber').value = 0;
+    document.getElementById('scrubber-time').textContent = `0:00 / ${fmtSecs(p.duration)}`;
   });
   p.addEventListener('waiting', () => {
     if (slot !== activeSlot) return;
@@ -614,6 +671,8 @@ players.forEach((p, slot) => {
     if (slot !== activeSlot) return;
     loadVideoAt(currentIdx + 1);
   });
+  p.addEventListener('play',  () => { if (slot === activeSlot) updatePlayPauseBtn(false); });
+  p.addEventListener('pause', () => { if (slot === activeSlot) updatePlayPauseBtn(true); });
 });
 
 // ── Cookie helpers ─────────────────────────────────────────────────────────
@@ -921,8 +980,10 @@ async function logEvent(status) {
   });
 
   eventCount++;
+  sessionCounts[status] = (sessionCounts[status] || 0) + 1;
   logRows.unshift({ time: fmtTs(ts), status, product, unit: currentUnit });
   renderLog();
+  renderBadges();
   flashBtn(status);
 }
 
@@ -959,11 +1020,58 @@ async function undoEvent() {
   });
   const data = await res.json();
   if (data.removed) {
-    logRows.shift();
+    const removed = logRows.shift();
     eventCount = Math.max(0, eventCount - 1);
+    if (removed && sessionCounts[removed.status] > 0) sessionCounts[removed.status]--;
     renderLog();
+    renderBadges();
   }
 }
+
+// ── Session badges ─────────────────────────────────────────────────────────
+function renderBadges() {
+  ['Good','Bad','Issue','Reject'].forEach(s => {
+    const el = document.getElementById(`badge-${s.toLowerCase()}`);
+    if (el) el.textContent = sessionCounts[s] > 0 ? sessionCounts[s] : '';
+  });
+}
+
+// ── Playback controls ──────────────────────────────────────────────────────
+function togglePlayPause() {
+  const p = activePlayer();
+  p.paused ? p.play() : p.pause();
+}
+function seekBy(secs) {
+  const p = activePlayer();
+  p.currentTime = Math.max(0, Math.min(p.duration || Infinity, p.currentTime + secs));
+}
+function updatePlayPauseBtn(paused) {
+  const btn = document.getElementById('btn-playpause');
+  if (btn) btn.textContent = paused ? '▶' : '⏸';
+}
+
+// ── Scrubber ───────────────────────────────────────────────────────────────
+function fmtSecs(s) {
+  if (!s || isNaN(s)) return '0:00';
+  const m = Math.floor(s / 60), sec = Math.floor(s % 60);
+  return `${m}:${sec.toString().padStart(2, '0')}`;
+}
+(function wireScrubber() {
+  const sc = document.getElementById('scrubber');
+  sc.addEventListener('mousedown',  () => { scrubberDragging = true; });
+  sc.addEventListener('input', () => {
+    const p = activePlayer();
+    if (p && p.duration)
+      document.getElementById('scrubber-time').textContent =
+        `${fmtSecs((sc.value / 100) * p.duration)} / ${fmtSecs(p.duration)}`;
+  });
+  sc.addEventListener('change', () => {
+    const p = activePlayer();
+    if (p && p.duration) p.currentTime = (sc.value / 100) * p.duration;
+    scrubberDragging = false;
+  });
+  sc.addEventListener('mouseup', () => { scrubberDragging = false; });
+})();
 
 // ── Speed ──────────────────────────────────────────────────────────────────
 function setSpeed(rate) {
@@ -993,15 +1101,15 @@ document.addEventListener('keydown', e => {
     case 'p': loadVideoAt(currentIdx - 1); break;
     case ' ':
       e.preventDefault();
-      p.paused ? p.play() : p.pause();
+      togglePlayPause();
       break;
     case 'arrowleft':
       e.preventDefault();
-      p.currentTime = Math.max(0, p.currentTime - (e.shiftKey ? 30 : 5));
+      seekBy(e.shiftKey ? -30 : -5);
       break;
     case 'arrowright':
       e.preventDefault();
-      p.currentTime = Math.min(p.duration || Infinity, p.currentTime + (e.shiftKey ? 30 : 5));
+      seekBy(e.shiftKey ? 30 : 5);
       break;
   }
 });

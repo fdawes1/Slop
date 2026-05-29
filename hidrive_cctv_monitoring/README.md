@@ -20,21 +20,24 @@ Accessible to anyone on the network. Multiple reviewers can use it simultaneousl
 3. Click a video to start playback — the next video preloads automatically
 4. Use the action buttons (or keyboard shortcuts) to log events at the current frame:
 
-| Key | Action |
-|-----|--------|
-| `G` | Good |
-| `B` | Bad |
-| `I` | Issue |
-| `R` | Reject |
-| `U` | Undo last event |
-| `N` / `P` | Next / previous video |
-| `Space` | Play / pause |
-| `← / →` | ±5 s |
+| Key / Button | Action |
+|---|---|
+| `G` / Good | Log Good |
+| `B` / Bad | Log Bad |
+| `I` / Issue | Log Issue |
+| `R` / Reject | Log Reject |
+| `U` / Undo | Remove last entry |
+| `N` / `P` or ⏭ ⏮ | Next / previous video |
+| `Space` or ▶⏸ | Play / pause |
+| `← / →` or ⏪ ⏩ | ±5 s |
 | `Shift+← / →` | ±30 s |
 
-5. Adjust **playback speed** (0.75× – 2×) in the controls bar
-6. Update the **Product** field any time — captured with each log entry
-7. **Download CSV** to export your session log
+5. Use the **seek scrubber** below the video to jump to any point — shows current position and clip duration
+6. Per-session **event counts** appear as badges on each action button
+7. Adjust **playback speed** (0.75× – 2×) in the controls bar
+8. Update the **Product** field any time — captured with each log entry
+9. **Download CSV** to export your session log
+10. Toggle **light / dark mode** with the ☀/☾ button in the header
 
 ## Logs
 
