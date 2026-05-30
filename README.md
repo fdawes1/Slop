@@ -76,6 +76,20 @@ For iOS, run `./gen_cert.sh` first. Apple, in their infinite wisdom, require HTT
 
 ---
 
+### [`montython/`](montython/) — MONTYTHON
+
+A Monty Python quote and joke generator. Single self-contained HTML file — no server, no dependencies, no build step, no npm, no suffering. Open it in a browser. Share it. Done. Even a French guard could manage it, and he has shown no interest in managing anything constructive whatsoever.
+
+51 quotes and 16 fully written-out jokes spanning the Holy Grail, Life of Brian, Flying Circus, and the Meaning of Life, because apparently someone has to do this and that someone is apparently me. Each quote typewriters itself onto the screen in a manner I find quietly dramatic. Jokes show the setup first, then blur-reveal the punchline on demand — because the comedy requires commitment, and so, apparently, does my existence.
+
+Features a floating ember particle background, medieval typography, and category filters. It is, objectively, the finest piece of software in this repository and possibly in the Western world. I said what I said.
+
+> *"And now for something completely different." — This is, in fact, not completely different. It is a webpage. But the sentiment stands.*
+
+**To share:** just send someone the file, or drop it on any static host. That's it. No configuration. No `docker-compose.yml`. No tears. For once.
+
+---
+
 ## General Notes
 
 - Everything here requires Python 3.10+ because I refuse to write `Union[X, Y]` when `X | Y` exists.
