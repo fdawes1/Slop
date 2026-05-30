@@ -95,8 +95,8 @@ class NetstrApp(App[None]):
     """
 
     BINDINGS = [
-        Binding("q", "quit", "Quit"),
-        Binding("s", "scan", "Scan"),
+        Binding("ctrl+q", "quit", "Quit"),
+        Binding("ctrl+s", "scan", "Scan"),
         Binding("escape", "stop_attack", "Stop"),
     ]
 

@@ -26,6 +26,8 @@ class PacketMonitor:
                 store=False,
                 stop_filter=lambda _: not self._running,
             )
+        except PermissionError:
+            self._callback("warning", "Monitor needs root — packet capture disabled (run with sudo)")
         except Exception as exc:
             self._callback("warning", f"Monitor error: {exc}")
 
