@@ -1,0 +1,826 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>MONTYTHON — Oracle of Entirely Silly Things</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Cinzel+Decorative:wght@700;900&family=Cinzel:wght@400;600&family=IM+Fell+English:ital@0;1&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg:         #080603;
+    --bg-card:    #110d05;
+    --bg-card2:   #160f06;
+    --border:     #3a2a0e;
+    --border-hi:  #8a6520;
+    --gold:       #c8a050;
+    --gold-hi:    #ffd166;
+    --gold-dim:   #6a4e20;
+    --text:       #c0963c;
+    --text-dim:   #5a401a;
+    --red:        #cc3311;
+    --green:      #2a6632;
+    --white:      #f0ddb0;
+    --radius:     4px;
+  }
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'IM Fell English', Georgia, serif;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* ── Ember particle canvas ── */
+  #embers { position: fixed; inset: 0; pointer-events: none; z-index: 0; }
+
+  /* ── Layout ── */
+  .wrap { position: relative; z-index: 1; max-width: 860px; margin: 0 auto; padding: 0 20px 80px; }
+
+  /* ── Header ── */
+  header {
+    text-align: center;
+    padding: 52px 20px 36px;
+    border-bottom: 1px solid var(--border);
+    position: relative;
+  }
+  header::before, header::after {
+    content: '✦ ✦ ✦';
+    display: block;
+    color: var(--gold-dim);
+    font-size: 13px;
+    letter-spacing: 8px;
+    margin-bottom: 12px;
+  }
+  header::after { margin-bottom: 0; margin-top: 14px; }
+
+  h1 {
+    font-family: 'Cinzel Decorative', serif;
+    font-size: clamp(2.4rem, 8vw, 4.2rem);
+    font-weight: 900;
+    letter-spacing: 0.08em;
+    background: linear-gradient(180deg, var(--gold-hi) 0%, var(--gold) 45%, #8a6010 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    text-shadow: none;
+    line-height: 1.1;
+    filter: drop-shadow(0 0 18px #c8903060);
+  }
+
+  .tagline {
+    font-family: 'IM Fell English', serif;
+    font-style: italic;
+    color: var(--gold-dim);
+    font-size: 1rem;
+    margin-top: 10px;
+    letter-spacing: 0.03em;
+  }
+
+  .subtitle {
+    font-family: 'Cinzel', serif;
+    font-size: 0.7rem;
+    letter-spacing: 0.3em;
+    color: var(--text-dim);
+    text-transform: uppercase;
+    margin-top: 6px;
+  }
+
+  /* ── Tabs ── */
+  .tabs {
+    display: flex;
+    gap: 2px;
+    margin: 32px 0 28px;
+    border-bottom: 1px solid var(--border);
+  }
+  .tab {
+    font-family: 'Cinzel', serif;
+    font-size: 0.75rem;
+    letter-spacing: 0.25em;
+    text-transform: uppercase;
+    padding: 10px 22px;
+    cursor: pointer;
+    color: var(--gold-dim);
+    border: 1px solid transparent;
+    border-bottom: none;
+    background: transparent;
+    transition: color 0.2s, background 0.2s, border-color 0.2s;
+    position: relative;
+    bottom: -1px;
+  }
+  .tab:hover { color: var(--gold); }
+  .tab.active {
+    color: var(--gold-hi);
+    background: var(--bg-card);
+    border-color: var(--border);
+    border-bottom-color: var(--bg-card);
+  }
+
+  /* ── Category pills ── */
+  .pills {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-bottom: 24px;
+  }
+  .pill {
+    font-family: 'Cinzel', serif;
+    font-size: 0.65rem;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    padding: 5px 12px;
+    border: 1px solid var(--border);
+    background: transparent;
+    color: var(--gold-dim);
+    cursor: pointer;
+    transition: all 0.2s;
+    border-radius: var(--radius);
+  }
+  .pill:hover { color: var(--gold); border-color: var(--gold-dim); }
+  .pill.active { color: var(--gold-hi); border-color: var(--gold); background: #1e1506; }
+
+  /* ── Card ── */
+  .card {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 36px 40px;
+    position: relative;
+    min-height: 200px;
+  }
+  .card::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: var(--radius);
+    background: radial-gradient(ellipse at 50% 0%, #c8a02008 0%, transparent 70%);
+    pointer-events: none;
+  }
+
+  /* ── Corner decorations ── */
+  .card-corner {
+    position: absolute;
+    width: 18px;
+    height: 18px;
+    border-color: var(--border-hi);
+    border-style: solid;
+    opacity: 0.6;
+  }
+  .card-corner.tl { top: 8px; left: 8px; border-width: 1px 0 0 1px; }
+  .card-corner.tr { top: 8px; right: 8px; border-width: 1px 1px 0 0; }
+  .card-corner.bl { bottom: 8px; left: 8px; border-width: 0 0 1px 1px; }
+  .card-corner.br { bottom: 8px; right: 8px; border-width: 0 1px 1px 0; }
+
+  /* ── Quote display ── */
+  #quote-text {
+    font-family: 'IM Fell English', serif;
+    font-size: clamp(1.15rem, 3vw, 1.5rem);
+    line-height: 1.7;
+    color: var(--white);
+    min-height: 80px;
+    position: relative;
+  }
+  #quote-text::after {
+    content: '|';
+    animation: blink 0.9s step-end infinite;
+    color: var(--gold);
+    margin-left: 2px;
+  }
+  #quote-text.done::after { display: none; }
+
+  @keyframes blink { 50% { opacity: 0; } }
+
+  #quote-attr {
+    margin-top: 20px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    opacity: 0;
+    transition: opacity 0.6s;
+  }
+  #quote-attr.visible { opacity: 1; }
+  #quote-char {
+    font-family: 'Cinzel', serif;
+    font-size: 0.8rem;
+    color: var(--gold);
+    letter-spacing: 0.1em;
+  }
+  #quote-film {
+    font-family: 'Cinzel', serif;
+    font-size: 0.65rem;
+    color: var(--text-dim);
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    padding: 3px 8px;
+    border: 1px solid var(--border);
+    border-radius: 2px;
+  }
+
+  /* ── Joke display ── */
+  #joke-setup {
+    font-family: 'IM Fell English', serif;
+    font-size: clamp(1.05rem, 2.5vw, 1.3rem);
+    line-height: 1.7;
+    color: var(--white);
+    min-height: 60px;
+  }
+  #joke-setup::after {
+    content: '|';
+    animation: blink 0.9s step-end infinite;
+    color: var(--gold);
+    margin-left: 2px;
+  }
+  #joke-setup.done::after { display: none; }
+
+  .punchline-wrap {
+    margin-top: 28px;
+    padding-top: 24px;
+    border-top: 1px solid var(--border);
+    display: none;
+  }
+  .punchline-wrap.visible { display: block; }
+
+  #joke-punchline {
+    font-family: 'IM Fell English', serif;
+    font-style: italic;
+    font-size: clamp(1.05rem, 2.5vw, 1.3rem);
+    line-height: 1.7;
+    color: var(--gold-hi);
+    filter: blur(8px);
+    transition: filter 0.8s ease;
+  }
+  #joke-punchline.revealed { filter: blur(0); }
+  #joke-punchline::after {
+    content: '|';
+    animation: blink 0.9s step-end infinite;
+    color: var(--gold-hi);
+    margin-left: 2px;
+  }
+  #joke-punchline.done::after { display: none; }
+
+  /* ── Buttons ── */
+  .btn-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-top: 28px;
+    align-items: center;
+  }
+
+  .btn {
+    font-family: 'Cinzel', serif;
+    font-size: 0.7rem;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+    padding: 10px 20px;
+    border: 1px solid var(--border-hi);
+    background: transparent;
+    color: var(--gold);
+    cursor: pointer;
+    transition: all 0.2s;
+    border-radius: var(--radius);
+    position: relative;
+    overflow: hidden;
+  }
+  .btn::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(135deg, var(--gold) 0%, transparent 100%);
+    opacity: 0;
+    transition: opacity 0.2s;
+  }
+  .btn:hover { color: var(--gold-hi); border-color: var(--gold); }
+  .btn:hover::before { opacity: 0.06; }
+  .btn:active { transform: scale(0.98); }
+  .btn:disabled { opacity: 0.35; cursor: default; pointer-events: none; }
+
+  .btn-primary { border-color: var(--gold); color: var(--gold-hi); }
+  .btn-primary:hover { background: #1e140300; box-shadow: 0 0 16px #c8a05030; }
+
+  .btn-small {
+    font-size: 0.62rem;
+    padding: 7px 14px;
+    color: var(--gold-dim);
+    border-color: var(--border);
+  }
+
+  .btn-reveal {
+    border-color: var(--red);
+    color: #ff6644;
+    letter-spacing: 0.18em;
+  }
+  .btn-reveal:hover { border-color: #ff6644; box-shadow: 0 0 14px #cc331130; }
+
+  /* ── Counter ── */
+  .counter {
+    font-family: 'Cinzel', serif;
+    font-size: 0.62rem;
+    letter-spacing: 0.2em;
+    color: var(--text-dim);
+    margin-left: auto;
+  }
+
+  /* ── Copied toast ── */
+  .toast {
+    position: fixed;
+    bottom: 30px;
+    left: 50%;
+    transform: translateX(-50%) translateY(20px);
+    background: var(--bg-card2);
+    border: 1px solid var(--border-hi);
+    color: var(--gold-hi);
+    font-family: 'Cinzel', serif;
+    font-size: 0.7rem;
+    letter-spacing: 0.2em;
+    padding: 10px 22px;
+    border-radius: var(--radius);
+    opacity: 0;
+    pointer-events: none;
+    transition: all 0.3s;
+    z-index: 100;
+  }
+  .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+  /* ── Section visibility ── */
+  .section { display: none; }
+  .section.active { display: block; }
+
+  /* ── Divider ── */
+  .divider {
+    text-align: center;
+    color: var(--text-dim);
+    font-size: 0.8rem;
+    letter-spacing: 6px;
+    margin: 10px 0 4px;
+  }
+
+  /* ── Footer ── */
+  footer {
+    text-align: center;
+    padding: 32px 0;
+    border-top: 1px solid var(--border);
+    margin-top: 50px;
+  }
+  .footer-text {
+    font-family: 'IM Fell English', serif;
+    font-style: italic;
+    color: var(--text-dim);
+    font-size: 0.9rem;
+  }
+  .footer-sub {
+    font-family: 'Cinzel', serif;
+    font-size: 0.6rem;
+    letter-spacing: 0.3em;
+    color: var(--gold-dim);
+    margin-top: 8px;
+    text-transform: uppercase;
+    opacity: 0.5;
+  }
+
+  /* ── Responsive ── */
+  @media (max-width: 520px) {
+    .card { padding: 24px 20px; }
+    .btn-row { flex-direction: column; align-items: stretch; }
+    .counter { margin-left: 0; }
+  }
+</style>
+</head>
+<body>
+<canvas id="embers"></canvas>
+
+<div class="wrap">
+  <header>
+    <h1>MONTYTHON</h1>
+    <p class="tagline">"And now for something completely different."</p>
+    <p class="subtitle">Oracle of Entirely Silly Things &nbsp;·&nbsp; Est. 974 AD</p>
+  </header>
+
+  <div class="tabs">
+    <button class="tab active" onclick="switchTab('quotes')">⚔ Quotes</button>
+    <button class="tab"        onclick="switchTab('jokes')">🐦 Jokes</button>
+  </div>
+
+  <!-- ── QUOTES ── -->
+  <div id="sec-quotes" class="section active">
+    <div class="pills" id="quote-pills"></div>
+    <div class="card">
+      <div class="card-corner tl"></div><div class="card-corner tr"></div>
+      <div class="card-corner bl"></div><div class="card-corner br"></div>
+      <div id="quote-text"></div>
+      <div id="quote-attr">
+        <span id="quote-char"></span>
+        <span id="quote-film"></span>
+      </div>
+    </div>
+    <div class="btn-row">
+      <button class="btn btn-primary" id="btn-quote" onclick="nextQuote()">⚔ &nbsp;Summon Another</button>
+      <button class="btn btn-small" onclick="copyQuote()">⎘ &nbsp;Copy</button>
+      <span class="counter" id="quote-counter"></span>
+    </div>
+  </div>
+
+  <!-- ── JOKES ── -->
+  <div id="sec-jokes" class="section">
+    <div class="pills" id="joke-pills"></div>
+    <div class="card">
+      <div class="card-corner tl"></div><div class="card-corner tr"></div>
+      <div class="card-corner bl"></div><div class="card-corner br"></div>
+      <div id="joke-setup"></div>
+      <div class="punchline-wrap" id="punchline-wrap">
+        <div class="divider">✦ &nbsp; &nbsp; ✦</div>
+        <div id="joke-punchline"></div>
+      </div>
+    </div>
+    <div class="btn-row">
+      <button class="btn btn-primary" id="btn-joke" onclick="nextJoke()">🐟 &nbsp;Another Affliction</button>
+      <button class="btn btn-reveal"  id="btn-reveal" onclick="revealPunchline()" disabled>☠ &nbsp;Reveal the Punchline</button>
+      <span class="counter" id="joke-counter"></span>
+    </div>
+  </div>
+</div>
+
+<footer>
+  <p class="footer-text">"She's a witch! Burn her! ... I got better."</p>
+  <p class="footer-sub">No swallows were harmed in the making of this page &nbsp;·&nbsp; African or European?</p>
+</footer>
+
+<div class="toast" id="toast">COPIED TO CLIPBOARD</div>
+
+<script>
+// ── Data ────────────────────────────────────────────────────────────────────
+
+const QUOTES = [
+  // Holy Grail
+  { text: "It's just a flesh wound.", character: "The Black Knight", film: "Holy Grail" },
+  { text: "None shall pass.", character: "The Black Knight", film: "Holy Grail" },
+  { text: "I am invincible!", character: "The Black Knight", film: "Holy Grail" },
+  { text: "On second thought, let's not go to Camelot. It is a silly place.", character: "King Arthur", film: "Holy Grail" },
+  { text: "Strange women lying in ponds distributing swords is no basis for a system of government.", character: "Dennis the Peasant", film: "Holy Grail" },
+  { text: "Help! Help! I'm being repressed!", character: "Dennis the Peasant", film: "Holy Grail" },
+  { text: "Come and see the violence inherent in the system!", character: "Dennis the Peasant", film: "Holy Grail" },
+  { text: "What is your name? What is your quest? What is the air-speed velocity of an unladen swallow?", character: "The Bridgekeeper", film: "Holy Grail" },
+  { text: "African or European?", character: "King Arthur", film: "Holy Grail" },
+  { text: "Are you suggesting coconuts migrate?", character: "The Guard", film: "Holy Grail" },
+  { text: "She turned me into a newt! ... I got better.", character: "Sir Bedevere", film: "Holy Grail" },
+  { text: "I fart in your general direction! Your mother was a hamster and your father smelt of elderberries!", character: "The French Guard", film: "Holy Grail" },
+  { text: "Run away! Run away!", character: "King Arthur", film: "Holy Grail" },
+  { text: "It's only a model.", character: "Patsy", film: "Holy Grail" },
+  { text: "We have found a witch! May we burn her?", character: "The Villagers", film: "Holy Grail" },
+  { text: "I'm not dead yet!", character: "The Plague Victim", film: "Holy Grail" },
+  { text: "Well, I didn't vote for you.", character: "Dennis the Peasant", film: "Holy Grail" },
+  { text: "Bring out your dead!", character: "The Plague Cart Man", film: "Holy Grail" },
+  { text: "We are an autonomous collective.", character: "Dennis the Peasant", film: "Holy Grail" },
+  { text: "We are the knights who say... NI!", character: "The Knight Who Says Ni", film: "Holy Grail" },
+  { text: "A SHRUBBERY!", character: "The Knight Who Says Ni", film: "Holy Grail" },
+  { text: "We want... a shrubbery.", character: "The Knight Who Says Ni", film: "Holy Grail" },
+  { text: "He will be soon, he's very ill.", character: "The Plague Cart Man", film: "Holy Grail" },
+  { text: "You don't vote for kings!", character: "Dennis the Peasant", film: "Holy Grail" },
+  // Life of Brian
+  { text: "He's not the Messiah, he's a very naughty boy!", character: "Brian's Mother", film: "Life of Brian" },
+  { text: "Always look on the bright side of life.", character: "Mr. Frisbee III", film: "Life of Brian" },
+  { text: "What have the Romans ever done for us?", character: "Reg", film: "Life of Brian" },
+  { text: "You are all individuals! ... I'm not.", character: "Brian & The Crowd", film: "Life of Brian" },
+  { text: "Blessed are the cheesemakers.", character: "The Crowd (mishearing)", film: "Life of Brian" },
+  { text: "Obviously it's not meant to be taken literally. It refers to any manufacturers of dairy products.", character: "Gregory", film: "Life of Brian" },
+  { text: "I want to be a woman. From now on I want you all to call me Loretta.", character: "Stan / Loretta", film: "Life of Brian" },
+  { text: "All right, but apart from the sanitation, the medicine, education, wine, public order, irrigation, roads, the fresh-water system, and public health — what have the Romans ever done for us?", character: "Reg", film: "Life of Brian" },
+  { text: "Splitter!", character: "Reg", film: "Life of Brian" },
+  { text: "I'm Brian and so is my wife!", character: "Random Bystander", film: "Life of Brian" },
+  { text: "Crucifixion? Good. Out of the door, line on the left, one cross each.", character: "Roman Soldier", film: "Life of Brian" },
+  { text: "He's got very big... shoes.", character: "The Crowd", film: "Life of Brian" },
+  // Flying Circus
+  { text: "This parrot is no more! It has ceased to be! It's expired and gone to meet its maker! This is a late parrot!", character: "Mr. Praline", film: "Flying Circus" },
+  { text: "It's not dead, it's resting!", character: "Pet Shop Owner", film: "Flying Circus" },
+  { text: "It's pining for the fjords!", character: "Pet Shop Owner", film: "Flying Circus" },
+  { text: "Remarkable bird, the Norwegian Blue. Beautiful plumage.", character: "Pet Shop Owner", film: "Flying Circus" },
+  { text: "The plumage don't enter into it.", character: "Mr. Praline", film: "Flying Circus" },
+  { text: "This is an ex-parrot!", character: "Mr. Praline", film: "Flying Circus" },
+  { text: "NOBODY expects the Spanish Inquisition!", character: "Cardinal Ximenez", film: "Flying Circus" },
+  { text: "Our chief weapon is surprise. Surprise and fear. Fear and surprise. Our TWO weapons are fear and surprise and ruthless efficiency. Our THREE weapons are...", character: "Cardinal Ximenez", film: "Flying Circus" },
+  { text: "And now for something completely different.", character: "The Announcer", film: "Flying Circus" },
+  { text: "Spam spam spam spam... lovely spam, wonderful spam!", character: "The Vikings", film: "Flying Circus" },
+  { text: "I wish to complain about this parrot what I purchased not half an hour ago from this very boutique.", character: "Mr. Praline", film: "Flying Circus" },
+  // Meaning of Life
+  { text: "Try and be nice to people, avoid eating fat, read a good book every now and then, get some walking in, and try and live together in peace and harmony with people of all creeds and nations.", character: "The Lady", film: "Meaning of Life" },
+  { text: "Wafer-thin mint?", character: "The Maître D", film: "Meaning of Life" },
+  { text: "Every sperm is sacred.", character: "Mr. Blackitt", film: "Meaning of Life" },
+  { text: "Well, that's the end of the film. Now, here's the meaning of life.", character: "The Lady", film: "Meaning of Life" },
+];
+
+const JOKES = [
+  {
+    setup: "A man walks into a pet shop. 'I'd like to buy that parrot.' The shopkeeper says, 'He's not dead, he's resting.'",
+    punchline: "'RESTING?! He's nailed to the perch!' The shopkeeper: 'Remarkable bird, the Norwegian Blue. Beautiful plumage.' The man: 'THE PLUMAGE DON\\'T ENTER INTO IT. This parrot is no more! It has ceased to be! It is an EX-PARROT!' The shopkeeper considers this for a moment. 'He\\'s probably pining for the fjords.' Neither man has moved in four hours.",
+    category: "Flying Circus"
+  },
+  {
+    setup: "NOBODY expects...",
+    punchline: "THE SPANISH INQUISITION! Our chief weapons are surprise, fear, and ruthless efficiency — and an almost fanatical devotion to the Pope. Our FOUR weapons are... I'll come in again.",
+    category: "Flying Circus"
+  },
+  {
+    setup: "The Black Knight stands in the middle of the road. 'None shall pass,' he says. You cut off his arm.",
+    punchline: "'Tis but a scratch.' You cut off the other arm. 'Just a flesh wound!' Both legs follow. 'All right, we'll call it a draw.' He is a limbless torso in the mud. He is still threatening you. You are now late to a meeting. The meeting was also terrible. Nothing about this day has gone well.",
+    category: "Holy Grail"
+  },
+  {
+    setup: "What is the air-speed velocity of an unladen swallow?",
+    punchline: "African or European? You don't know THAT? Then how did you know to ask? AAAAAAARGH. *hurls self into gorge* The Bridgekeeper has been replaced. His replacement also does not know. Nobody knows. It has never mattered. It will never matter. The swallow continues regardless.",
+    category: "Holy Grail"
+  },
+  {
+    setup: "A man goes to the plague cart. 'BRING OUT YOUR DEAD!' A body under a blanket says: 'I'm not dead yet.'",
+    punchline: "'Yes he is.' 'No I\\'m not!' 'He will be soon, he\\'s very ill.' 'I feel happy! I feel happy! I think I\\'ll go for a walk!' *CLONK* 'Thanks very much.' The cart moves on. This has happened three times today. Medieval healthcare is in crisis.",
+    category: "Holy Grail"
+  },
+  {
+    setup: "How do you prove a woman is a witch?",
+    punchline: "She weighs the same as a duck. Therefore she is made of wood. Wood floats. And what else floats? Churches? No. Lead? No. Very small rocks? ...A DUCK. Therefore: if she weighs the same as a duck — SHE IS A WITCH. This is peer-reviewed medieval science. She was, in fact, a witch. Nobody is addressing this.",
+    category: "Holy Grail"
+  },
+  {
+    setup: "A peasant approaches the King. 'Who are you?' 'I am your king.' 'Well, I didn't vote for you.'",
+    punchline: "'You don\\'t vote for kings!' 'Then how\\'d you become king?' 'The Lady of the Lake — her arm clad in the purest shimmering samite — held aloft Excalibur from the bosom of the water...' 'STRANGE WOMEN LYING IN PONDS DISTRIBUTING SWORDS IS NO BASIS FOR A SYSTEM OF GOVERNMENT.' The King has still not moved on. The peasant has written a pamphlet.",
+    category: "Holy Grail"
+  },
+  {
+    setup: "What have the Romans ever done for us?",
+    punchline: "Well, there's the sanitation. And the roads. And the medicine. The education. Wine. Public order. Irrigation. The fresh-water system. And public health. 'All right, but APART from the sanitation, medicine, education, wine, public order, irrigation, roads, fresh-water system, and public health — what have the Romans done for us?' ...Peace. 'Oh, SHUT UP.'",
+    category: "Life of Brian"
+  },
+  {
+    setup: "A crowd gathers below Brian's window. He yells: 'You are all individuals!'",
+    punchline: "The crowd yells back in perfect unison: 'WE ARE ALL INDIVIDUALS!' One man, quietly: 'I\\'m not.' Nobody hears him. He is the most self-aware person in Jerusalem. His memoir has not been commissioned.",
+    category: "Life of Brian"
+  },
+  {
+    setup: "He's not the Messiah.",
+    punchline: "He's a very naughty boy! — Brian's Mother, theological scholar, Jerusalem, 33 AD. Her position has remained unchanged for two thousand years. She is technically still waiting for Brian to tidy his room.",
+    category: "Life of Brian"
+  },
+  {
+    setup: "A man walks into a café and asks for eggs, bacon, and spam.",
+    punchline: "'Spam spam spam spam, baked beans spam spam spam and spam.' 'Have you got anything without spam?' 'Well, there's spam egg sausage and spam, that\\'s not got much spam in it.' The Vikings begin singing. They have not stopped. It has been forty years. The café is still open. Spam is still on the menu. God help us all.",
+    category: "Flying Circus"
+  },
+  {
+    setup: "A knight approaches and says: 'We are the knights who say... Ni!'",
+    punchline: "You must bring them a shrubbery. Then another shrubbery, placed slightly to one side — a two-level effect with a little path running down the middle. Then cut down the mightiest tree in the forest with... a herring. You have been in this forest for three weeks. The shrubbery is lovely though.",
+    category: "Holy Grail"
+  },
+  {
+    setup: "A man is crucified. He's in the wrong row.",
+    punchline: "'I want to be crucified!' 'You\\'re in the wrong row.' 'I asked for crucifixion.' 'Crucifixion? That\\'s a bit nasty isn\\'t it?' 'No it\\'s not, I\\'ve been looking forward to it.' Roman bureaucracy has always been like this. Nothing has changed. You are still in the wrong row.",
+    category: "Life of Brian"
+  },
+  {
+    setup: "What does 'Blessed are the cheesemakers' mean?",
+    punchline: "'Well, obviously it\\'s not meant to be taken literally; it refers to any manufacturers of dairy products.' 'But what about the Greek? What did the Greek say?' They did not hear the Greek. They were too far back. They have based an entire theological framework on the cheesemakers. The cheesemakers are bewildered. They just wanted to sell cheese.",
+    category: "Life of Brian"
+  },
+  {
+    setup: "The meaning of life?",
+    punchline: "Try and be nice to people. Avoid eating fat. Read a good book every now and then. Get some walking in. And try and live together in peace and harmony with people of all creeds and nations. That's it. Two thousand years of philosophy. That's what we've got. I'm as surprised as you are. Always look on the bright side.",
+    category: "Meaning of Life"
+  },
+];
+
+// ── State ───────────────────────────────────────────────────────────────────
+
+const CATEGORIES = ['All', 'Holy Grail', 'Life of Brian', 'Flying Circus', 'Meaning of Life'];
+
+let quoteFilter = 'All';
+let jokeFilter  = 'All';
+let quoteIdx    = -1;
+let jokeIdx     = -1;
+let typing      = false;
+let punchlineReady = false;
+
+// ── Ember particle background ────────────────────────────────────────────────
+
+(function() {
+  const canvas = document.getElementById('embers');
+  const ctx = canvas.getContext('2d');
+  let W, H, particles = [];
+
+  function resize() {
+    W = canvas.width  = window.innerWidth;
+    H = canvas.height = window.innerHeight;
+  }
+  window.addEventListener('resize', resize);
+  resize();
+
+  for (let i = 0; i < 55; i++) particles.push(newParticle(true));
+
+  function newParticle(random) {
+    return {
+      x: Math.random() * (W || 800),
+      y: random ? Math.random() * (H || 600) : (H || 600) + 10,
+      r: Math.random() * 1.6 + 0.4,
+      vy: -(Math.random() * 0.5 + 0.2),
+      vx: (Math.random() - 0.5) * 0.3,
+      life: 0,
+      maxLife: Math.random() * 300 + 200,
+      hue: Math.random() * 30 + 20,
+    };
+  }
+
+  function frame() {
+    ctx.clearRect(0, 0, W, H);
+    for (let i = particles.length - 1; i >= 0; i--) {
+      const p = particles[i];
+      p.life++;
+      p.x += p.vx + Math.sin(p.life * 0.03) * 0.2;
+      p.y += p.vy;
+      const alpha = Math.sin((p.life / p.maxLife) * Math.PI) * 0.55;
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
+      ctx.fillStyle = `hsla(${p.hue}, 90%, 65%, ${alpha})`;
+      ctx.fill();
+      if (p.life >= p.maxLife) particles[i] = newParticle(false);
+    }
+    requestAnimationFrame(frame);
+  }
+  frame();
+})();
+
+// ── Typewriter ───────────────────────────────────────────────────────────────
+
+function typewrite(el, text, speed, onDone) {
+  el.classList.remove('done');
+  el.textContent = '';
+  let i = 0;
+  function tick() {
+    if (i < text.length) {
+      el.textContent += text[i++];
+      setTimeout(tick, speed + Math.random() * (speed * 0.5));
+    } else {
+      el.classList.add('done');
+      if (onDone) onDone();
+    }
+  }
+  tick();
+}
+
+// ── Pills ────────────────────────────────────────────────────────────────────
+
+function buildPills(containerId, activeVar, onSelect) {
+  const wrap = document.getElementById(containerId);
+  wrap.innerHTML = '';
+  const films = new Set(['All']);
+  (containerId === 'quote-pills' ? QUOTES : JOKES).forEach(q => films.add(q.film || q.category));
+  CATEGORIES.filter(c => films.has(c)).forEach(cat => {
+    const btn = document.createElement('button');
+    btn.className = 'pill' + (cat === (containerId === 'quote-pills' ? quoteFilter : jokeFilter) ? ' active' : '');
+    btn.textContent = cat;
+    btn.onclick = () => { onSelect(cat); };
+    wrap.appendChild(btn);
+  });
+}
+
+function updatePills(containerId, active) {
+  document.querySelectorAll(`#${containerId} .pill`).forEach(p => {
+    p.classList.toggle('active', p.textContent === active);
+  });
+}
+
+// ── Quotes ───────────────────────────────────────────────────────────────────
+
+function filteredQuotes() {
+  return quoteFilter === 'All' ? QUOTES : QUOTES.filter(q => q.film === quoteFilter);
+}
+
+function nextQuote() {
+  if (typing) return;
+  typing = true;
+  document.getElementById('btn-quote').disabled = true;
+  document.getElementById('quote-attr').classList.remove('visible');
+
+  const pool = filteredQuotes();
+  let next;
+  do { next = Math.floor(Math.random() * pool.length); } while (next === quoteIdx && pool.length > 1);
+  quoteIdx = next;
+  const q = pool[quoteIdx];
+
+  updateCounter('quote-counter', quoteIdx + 1, pool.length);
+
+  typewrite(document.getElementById('quote-text'), `"${q.text}"`, 22, () => {
+    document.getElementById('quote-char').textContent = `— ${q.character}`;
+    document.getElementById('quote-film').textContent = q.film;
+    document.getElementById('quote-attr').classList.add('visible');
+    typing = false;
+    document.getElementById('btn-quote').disabled = false;
+  });
+}
+
+function copyQuote() {
+  const pool = filteredQuotes();
+  if (quoteIdx < 0 || quoteIdx >= pool.length) return;
+  const q = pool[quoteIdx];
+  navigator.clipboard?.writeText(`"${q.text}" — ${q.character} (${q.film})`).then(() => showToast());
+}
+
+// ── Jokes ────────────────────────────────────────────────────────────────────
+
+function filteredJokes() {
+  return jokeFilter === 'All' ? JOKES : JOKES.filter(j => j.category === jokeFilter);
+}
+
+let jokeTyping = false;
+
+function nextJoke() {
+  if (jokeTyping) return;
+  jokeTyping = true;
+  punchlineReady = false;
+
+  document.getElementById('btn-joke').disabled = true;
+  document.getElementById('btn-reveal').disabled = true;
+  document.getElementById('punchline-wrap').classList.remove('visible');
+  document.getElementById('joke-punchline').classList.remove('revealed', 'done');
+  document.getElementById('joke-punchline').textContent = '';
+
+  const pool = filteredJokes();
+  let next;
+  do { next = Math.floor(Math.random() * pool.length); } while (next === jokeIdx && pool.length > 1);
+  jokeIdx = next;
+  const j = pool[jokeIdx];
+
+  updateCounter('joke-counter', jokeIdx + 1, pool.length);
+
+  typewrite(document.getElementById('joke-setup'), j.setup, 20, () => {
+    jokeTyping = false;
+    punchlineReady = true;
+    document.getElementById('btn-joke').disabled = false;
+    document.getElementById('btn-reveal').disabled = false;
+  });
+}
+
+let punchlineTyping = false;
+
+function revealPunchline() {
+  if (!punchlineReady || punchlineTyping) return;
+  punchlineTyping = true;
+  document.getElementById('btn-reveal').disabled = true;
+
+  const pool = filteredJokes();
+  const j = pool[jokeIdx];
+  const wrap = document.getElementById('punchline-wrap');
+  const el   = document.getElementById('joke-punchline');
+
+  wrap.classList.add('visible');
+  el.classList.remove('done');
+  el.textContent = '';
+
+  setTimeout(() => {
+    el.classList.add('revealed');
+    typewrite(el, j.punchline, 18, () => {
+      punchlineTyping = false;
+    });
+  }, 200);
+}
+
+// ── Helpers ──────────────────────────────────────────────────────────────────
+
+function updateCounter(id, current, total) {
+  document.getElementById(id).textContent = `${current} / ${total}`;
+}
+
+function showToast() {
+  const t = document.getElementById('toast');
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 2200);
+}
+
+function switchTab(tab) {
+  document.querySelectorAll('.tab').forEach((b, i) => {
+    b.classList.toggle('active', (i === 0) === (tab === 'quotes'));
+  });
+  document.getElementById('sec-quotes').classList.toggle('active', tab === 'quotes');
+  document.getElementById('sec-jokes').classList.toggle('active', tab === 'jokes');
+}
+
+// ── Init ─────────────────────────────────────────────────────────────────────
+
+buildPills('quote-pills', 'quoteFilter', cat => {
+  quoteFilter = cat;
+  updatePills('quote-pills', cat);
+  quoteIdx = -1;
+  nextQuote();
+});
+
+buildPills('joke-pills', 'jokeFilter', cat => {
+  jokeFilter = cat;
+  updatePills('joke-pills', cat);
+  jokeIdx = -1;
+  nextJoke();
+});
+
+nextQuote();
+nextJoke();
+</script>
+</body>
+</html>
