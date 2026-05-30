@@ -1,7 +1,7 @@
 {
-  "name": "leap-cctv-ios",
+  "name": "hidrive-cctv-ios",
   "version": "1.0.0",
-  "description": "Leap CCTV Review — iOS",
+  "description": "HiDrive CCTV Review — iOS",
   "dependencies": {
     "@capacitor/core": "^6.0.0",
     "@capacitor/ios": "^6.0.0"

@@ -2,7 +2,7 @@
 # One-time setup script — run on a Mac with Xcode and CocoaPods installed.
 set -euo pipefail
 
-echo "=== Leap CCTV iOS — one-time project setup ==="
+echo "=== HiDrive CCTV iOS — one-time project setup ==="
 
 # 1. npm dependencies
 echo "→ Installing npm dependencies..."

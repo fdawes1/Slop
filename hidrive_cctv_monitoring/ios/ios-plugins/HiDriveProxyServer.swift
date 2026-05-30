@@ -10,7 +10,7 @@ final class HiDriveProxyServer {
     private let authHeader: String
     private var serverFd: Int32 = -1
     private var running = false
-    private let queue = DispatchQueue(label: "com.fdawes1.proxy", attributes: .concurrent)
+    private let queue = DispatchQueue(label: "ai.hidrive.proxy", attributes: .concurrent)
     private let session = URLSession(configuration: .default)
 
     init(port: UInt16, username: String, password: String) {

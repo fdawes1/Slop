@@ -1,6 +1,6 @@
 {
-  "appId": "com.fdawes1.cctv",
-  "appName": "Leap CCTV",
+  "appId": "ai.hidrive.cctv",
+  "appName": "HiDrive CCTV",
   "webDir": "www",
   "android": {
     "allowMixedContent": true,

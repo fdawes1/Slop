@@ -1,7 +1,7 @@
 {
-  "name": "leap-cctv-android",
+  "name": "hidrive-cctv-android",
   "version": "1.0.0",
-  "description": "Leap CCTV Review — Android",
+  "description": "HiDrive CCTV Review — Android",
   "dependencies": {
     "@capacitor/android": "^6.0.0",
     "@capacitor/core": "^6.0.0"

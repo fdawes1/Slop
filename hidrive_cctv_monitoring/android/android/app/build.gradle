@@ -1,10 +1,10 @@
 apply plugin: 'com.android.application'
 
 android {
-    namespace "com.fdawes1.cctv"
+    namespace "ai.hidrive.cctv"
     compileSdk rootProject.ext.compileSdkVersion
     defaultConfig {
-        applicationId "com.fdawes1.cctv"
+        applicationId "ai.hidrive.cctv"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
         versionCode project.hasProperty('versionCode') ? project.versionCode.toInteger() : 1

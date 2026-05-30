@@ -1,6 +1,6 @@
-# Leap CCTV — iOS (Capacitor)
+# HiDrive CCTV — iOS (Capacitor)
 
-Self-contained iOS app for Leap CCTV review. No server required — connects directly to HiDrive WebDAV via a local proxy running on-device, identical in behaviour to the Android app.
+Self-contained iOS app for HiDrive CCTV review. No server required — connects directly to HiDrive WebDAV via a local proxy running on-device, identical in behaviour to the Android app.
 
 ## Requirements
 
@@ -84,7 +84,7 @@ It generates the Xcode project from scratch each run, builds a simulator-compati
 
 Identical to the Android app — see the [Android README](../android/README.md) for the full feature list. Key differences on iOS:
 - Haptic feedback uses the system feedback engine (may not vibrate on all models)
-- CSV files are saved to the **Files app** under `On My iPhone → Leap CCTV` (Documents directory)
+- CSV files are saved to the **Files app** under `On My iPhone → HiDrive CCTV` (Documents directory)
 - Sharing uses the native iOS share sheet (AirDrop, Mail, Files, etc.)
 
 ## Native plugins

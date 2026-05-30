@@ -1,4 +1,4 @@
-name: Build Leap CCTV Android APK
+name: Build HiDrive CCTV Android APK
 
 on:
   push:
@@ -60,7 +60,7 @@ jobs:
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         with:
-          name: leap-cctv-debug-${{ github.run_number }}
+          name: hidrive-cctv-debug-${{ github.run_number }}
           path: hidrive_cctv_monitoring/android/android/app/build/outputs/apk/debug/app-debug.apk
           retention-days: 30
 
@@ -74,4 +74,4 @@ jobs:
           gh release create cctv-android-latest \
             --title "Build ${{ github.run_number }}" \
             --notes "Build ${{ github.run_number }} · $(git rev-parse --short HEAD)" \
-            "$APK#leap-cctv.apk"
+            "$APK#hidrive-cctv.apk"

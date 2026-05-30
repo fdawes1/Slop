@@ -1,4 +1,4 @@
-package com.fdawes1.cctv;
+package ai.hidrive.cctv;
 
 import android.util.Base64;
 import java.io.*;

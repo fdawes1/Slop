@@ -1,4 +1,4 @@
-package com.fdawes1.cctv;
+package ai.hidrive.cctv;
 
 import android.os.Bundle;
 import com.getcapacitor.BridgeActivity;

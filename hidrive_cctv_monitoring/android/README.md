@@ -1,6 +1,6 @@
-# Leap CCTV — Android (Capacitor)
+# HiDrive CCTV — Android (Capacitor)
 
-Self-contained Android APK for Leap CCTV review. No server required — the app connects directly to HiDrive WebDAV using a local proxy it runs on-device.
+Self-contained Android APK for HiDrive CCTV review. No server required — the app connects directly to HiDrive WebDAV using a local proxy it runs on-device.
 
 ## How it works
 
@@ -12,8 +12,8 @@ Log data is written to a CSV file on the device after every event and loaded bac
 
 The APK is built automatically by GitHub Actions on every push to `hidrive_cctv_monitoring/android/`.
 
-1. Go to the **Actions** tab → latest **Build Leap CCTV Android APK** run
-2. Download the `leap-cctv-debug-N` artifact and unzip to get `app-debug.apk`
+1. Go to the **Actions** tab → latest **Build HiDrive CCTV Android APK** run
+2. Download the `hidrive-cctv-debug-N` artifact and unzip to get `app-debug.apk`
 
 ## Install on device
 

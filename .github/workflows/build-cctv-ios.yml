@@ -1,4 +1,4 @@
-name: Build Leap CCTV iOS
+name: Build HiDrive CCTV iOS
 
 on:
   push:
@@ -63,12 +63,12 @@ jobs:
             CODE_SIGNING_REQUIRED=NO \
             EXPANDED_CODE_SIGN_IDENTITY=- \
             archive \
-            -archivePath build/LeapCCTV.xcarchive \
+            -archivePath build/HiDriveCCTV.xcarchive \
             | xcpretty --simple --color || true
 
       - name: Upload build artifact
         uses: actions/upload-artifact@v4
         with:
-          name: leap-cctv-ios-debug-${{ github.run_number }}
+          name: hidrive-cctv-ios-debug-${{ github.run_number }}
           path: hidrive_cctv_monitoring/ios/ios/App/build/
           retention-days: 30
