@@ -19,12 +19,15 @@ class PacketMonitor:
         self._running = False
 
     def _loop(self, iface: str) -> None:
-        sniff(
-            iface=iface,
-            prn=self._handle,
-            store=False,
-            stop_filter=lambda _: not self._running,
-        )
+        try:
+            sniff(
+                iface=iface,
+                prn=self._handle,
+                store=False,
+                stop_filter=lambda _: not self._running,
+            )
+        except Exception as exc:
+            self._callback("warning", f"Monitor error: {exc}")
 
     def _handle(self, pkt) -> None:
         if pkt.haslayer(Dot11Deauth):
