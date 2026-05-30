@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PREDCAM</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&display=swap" rel="stylesheet">
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { width: 100%; height: 100%; background: #000; overflow: hidden; }
+  #hud-canvas { display: block; width: 100vw; height: 100vh; }
+
+  #controls {
+    position: fixed; bottom: 22px; left: 50%; transform: translateX(-50%);
+    display: flex; gap: 8px; z-index: 10;
+  }
+
+  .mode-btn {
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 11px; letter-spacing: 2px;
+    padding: 7px 14px; cursor: pointer;
+    border: 1px solid currentColor; background: transparent;
+    opacity: 0.55; transition: opacity 0.2s, background 0.2s;
+    text-transform: uppercase;
+  }
+  .mode-btn:hover, .mode-btn.active { opacity: 1; }
+  .mode-btn[data-mode="thermal"] { color: #FF8800; }
+  .mode-btn[data-mode="thermal"].active  { background: rgba(255,136,0,0.18); }
+  .mode-btn[data-mode="night"]   { color: #00FF44; }
+  .mode-btn[data-mode="night"].active    { background: rgba(0,255,68,0.12); }
+  .mode-btn[data-mode="em"]      { color: #00FFFF; }
+  .mode-btn[data-mode="em"].active       { background: rgba(0,255,255,0.12); }
+  .mode-btn[data-mode="normal"]  { color: #aaa; }
+  .mode-btn[data-mode="normal"].active   { background: rgba(200,200,200,0.1); }
+</style>
+</head>
+<body>
+  <canvas id="hud-canvas"></canvas>
+  <div id="controls">
+    <button class="mode-btn" data-mode="thermal" onclick="hud.setMode('thermal')">THERMAL</button>
+    <button class="mode-btn" data-mode="night"   onclick="hud.setMode('night')">NIGHT</button>
+    <button class="mode-btn" data-mode="em"      onclick="hud.setMode('em')">E.M.</button>
+    <button class="mode-btn" data-mode="normal"  onclick="hud.setMode('normal')">NORMAL</button>
+  </div>
+<script src="/static/hud.js"></script>
+</body>
+</html>

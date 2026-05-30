@@ -1,0 +1,5 @@
+fastapi>=0.100
+uvicorn[standard]>=0.23
+opencv-python>=4.8
+numpy>=1.24
+websockets

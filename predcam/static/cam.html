@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
+<title>PREDCAM — CAMERA</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&display=swap" rel="stylesheet">
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    background: #000; color: #00FF44;
+    font-family: 'Share Tech Mono', monospace;
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    min-height: 100vh; padding: 20px; gap: 16px;
+  }
+  h1 { font-size: 16px; letter-spacing: 4px; color: #FF8800; }
+  #preview {
+    width: 100%; max-width: 360px; aspect-ratio: 4/3;
+    border: 1px solid #00FF4455; display: block;
+  }
+  #status { font-size: 13px; letter-spacing: 2px; color: #00FF44; }
+  #fps-row { font-size: 11px; color: #444; letter-spacing: 1px; }
+  #hint { font-size: 11px; color: #333; text-align: center; max-width: 280px; line-height: 1.6; }
+</style>
+</head>
+<body>
+  <h1>▸ PREDCAM</h1>
+  <canvas id="preview"></canvas>
+  <div id="status">INITIALISING...</div>
+  <div id="fps-row">TX: <span id="fps">--</span> fps &nbsp; LAT: <span id="lat">--</span> ms</div>
+  <div id="hint">Keep this page open. Your camera will stream to the HUD viewer.</div>
+  <video id="video" autoplay muted playsinline style="display:none"></video>
+<script>
+const proto  = location.protocol === 'https:' ? 'wss' : 'ws';
+const wsUrl  = `${proto}://${location.host}/ws/send`;
+const status = document.getElementById('status');
+const fpsEl  = document.getElementById('fps');
+const latEl  = document.getElementById('lat');
+const video  = document.getElementById('video');
+const preview= document.getElementById('preview');
+const pctx   = preview.getContext('2d');
+preview.width = 640; preview.height = 480;
+
+let ws, frameCount = 0, ftime = Date.now(), sending = false;
+
+function connect() {
+  ws = new WebSocket(wsUrl);
+  ws.binaryType = 'arraybuffer';
+  ws.onopen  = () => { status.textContent = 'CONNECTED'; startCam(); };
+  ws.onclose = () => { status.textContent = 'RECONNECTING...'; sending = false; setTimeout(connect, 2000); };
+  ws.onerror = () => { status.textContent = 'ERROR — CHECK NETWORK'; };
+}
+
+async function startCam() {
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({
+      video: { facingMode: 'environment', width: { ideal: 640 }, height: { ideal: 480 } },
+      audio: false,
+    });
+    video.srcObject = stream;
+    await video.play();
+    status.textContent = 'TRANSMITTING';
+    sending = true;
+    requestAnimationFrame(sendFrame);
+  } catch (e) {
+    status.textContent = 'CAM ERROR: ' + e.message;
+  }
+}
+
+function sendFrame() {
+  if (!sending || ws.readyState !== WebSocket.OPEN) return;
+  const t0 = Date.now();
+  pctx.drawImage(video, 0, 0, 640, 480);
+  preview.toBlob(blob => {
+    if (ws.readyState === WebSocket.OPEN) {
+      ws.send(blob);
+      latEl.textContent = Date.now() - t0;
+    }
+    frameCount++;
+    const now = Date.now();
+    if (now - ftime >= 1000) {
+      fpsEl.textContent = frameCount;
+      frameCount = 0; ftime = now;
+    }
+    requestAnimationFrame(sendFrame);
+  }, 'image/jpeg', 0.72);
+}
+
+connect();
+</script>
+</body>
+</html>
