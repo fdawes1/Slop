@@ -100,13 +100,15 @@ class NetstrApp(App[None]):
         Binding("escape", "stop_attack", "Stop"),
     ]
 
-    _selected_ap: Optional[AP] = None
-    _selected_host: Optional[Host] = None
-    _aps: list[AP] = []
-    _hosts: list[Host] = []
-    _deauth = DeauthAttack()
-    _arp = ArpSpoof()
-    _monitor: Optional[PacketMonitor] = None
+    def __init__(self):
+        super().__init__()
+        self._selected_ap: Optional[AP] = None
+        self._selected_host: Optional[Host] = None
+        self._aps: list[AP] = []
+        self._hosts: list[Host] = []
+        self._deauth = DeauthAttack()
+        self._arp = ArpSpoof()
+        self._monitor: Optional[PacketMonitor] = None
 
     def compose(self) -> ComposeResult:
         yield Header(show_clock=True)
@@ -260,6 +262,7 @@ class NetstrApp(App[None]):
 
     def action_scan(self) -> None:
         self._scan()
+        self._restart_monitor()
 
     def action_stop_attack(self) -> None:
         stopped = []
