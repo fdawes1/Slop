@@ -5,6 +5,7 @@ plague -- Medieval plague spread simulator (SIR model).
 """
 from __future__ import annotations
 import random
+from rich.text import Text
 from textual.app import App, ComposeResult
 from textual.containers import Horizontal, Vertical
 from textual.widgets import Button, Footer, Header, Input, Label, Static
@@ -59,25 +60,25 @@ def tick_grid(grid: list[list[Cell]], beta: float, gamma: float) -> list[list[Ce
     return new
 
 
-def render_grid(grid: list[list[Cell]]) -> str:
-    lines = []
+def render_grid(grid: list[list[Cell]]) -> Text:
+    """Build a Rich Text object directly — avoids markup string parsing overhead."""
+    text = Text(no_wrap=True)
     for row in grid:
-        parts = []
         for c in row:
             if c.i > 0.5:
-                parts.append("[bold red]#[/bold red]")
+                text.append("#", style="bold red")
             elif c.i > 0.2:
-                parts.append("[red]#[/red]")
+                text.append("#", style="red")
             elif c.i > 0.05:
-                parts.append("[yellow].[/yellow]")
+                text.append(".", style="yellow")
             elif c.r > 0.6:
-                parts.append("[green]+[/green]")
+                text.append("+", style="green")
             elif c.r > 0.15:
-                parts.append("[dim green].[/dim green]")
+                text.append(".", style="dim green")
             else:
-                parts.append("[dim white].[/dim white]")
-        lines.append("".join(parts))
-    return "\n".join(lines)
+                text.append(".", style="dim white")
+        text.append("\n")
+    return text
 
 
 def grid_totals(grid: list[list[Cell]]) -> tuple[float, float, float]:
@@ -115,7 +116,7 @@ class PlagueApp(App):
     TITLE = "PLAGUE  --  Medieval Disease Spread (SIR Model)"
     BINDINGS = [
         ("space", "toggle", "Pause/Resume"),
-        ("r", "action_reset", "Reset"),
+        ("r", "reset", "Reset"),
         ("q", "quit", "Quit"),
     ]
 
@@ -138,8 +139,7 @@ class PlagueApp(App):
                 yield Button("UNLEASH", id="start", variant="error", classes="btn")
                 yield Button("RESET", id="reset-btn", variant="default", classes="btn")
                 yield Label(
-                    "[red]#[/red] infected  [yellow].[/yellow] spreading\n"
-                    "[green]+[/green] recovered  [dim].[/dim] susceptible",
+                    "# infected  . spreading\n+ recovered  . susceptible",
                     id="legend",
                 )
             with Vertical():
@@ -160,7 +160,7 @@ class PlagueApp(App):
 
     def _update_r0(self) -> None:
         beta, gamma = self._params()
-        self.query_one("#r0", Label).update(f"R₀ = [bold]{beta / gamma:.2f}[/bold]")
+        self.query_one("#r0", Label).update(f"R0 = {beta / gamma:.2f}")
 
     @on(Button.Pressed, "#start")
     def on_start(self) -> None:
@@ -169,7 +169,7 @@ class PlagueApp(App):
             rx = random.randint(GRID_W // 4, 3 * GRID_W // 4)
             self.grid[ry][rx].seed(0.5)
             self._running = True
-            self._timer = self.set_interval(0.05, self._tick)
+            self._timer = self.set_interval(0.1, self._tick)
             self.query_one("#start", Button).label = "PAUSE"
         else:
             self.action_toggle()
@@ -186,7 +186,6 @@ class PlagueApp(App):
             self._running = True
             self.query_one("#start", Button).label = "PAUSE"
 
-    @on(Button.Pressed, "#reset-btn")
     def action_reset(self) -> None:
         if self._timer:
             self._timer.stop()
@@ -199,6 +198,10 @@ class PlagueApp(App):
         self.query_one("#start", Button).label = "UNLEASH"
         self._update_r0()
 
+    @on(Button.Pressed, "#reset-btn")
+    def on_reset_btn(self) -> None:
+        self.action_reset()
+
     def _tick(self) -> None:
         beta, gamma = self._params()
         self.grid = tick_grid(self.grid, beta, gamma)
@@ -206,23 +209,23 @@ class PlagueApp(App):
         s, i, r = grid_totals(self.grid)
         self.query_one("#canvas", Static).update(render_grid(self.grid))
         self.query_one("#stats", Static).update(
-            f"Day [bold]{self._day}[/bold]   "
-            f"Susceptible: [white]{s * 100:.1f}%[/white]   "
-            f"[red]Infected: {i * 100:.2f}%[/red]   "
-            f"[green]Recovered: {r * 100:.1f}%[/green]"
+            f"Day {self._day}   "
+            f"Susceptible: {s * 100:.1f}%   "
+            f"Infected: {i * 100:.2f}%   "
+            f"Recovered: {r * 100:.1f}%"
         )
         self._update_r0()
         if i < 0.0005 and self._day > 10:
-            if self._timer:
-                self._timer.stop()
-                self._timer = None
+            timer, self._timer = self._timer, None
             self._running = False
+            if timer:
+                timer.stop()
             self.query_one("#start", Button).label = "UNLEASH"
             self.query_one("#stats", Static).update(
-                f"[bold]Outbreak concluded. Day {self._day}.[/bold]   "
-                f"Survived: [white]{s * 100:.1f}%[/white]   "
-                f"[green]Recovered: {r * 100:.1f}%[/green]   "
-                '[dim]"I got better."[/dim]'
+                f"Outbreak concluded. Day {self._day}.   "
+                f"Survived: {s * 100:.1f}%   "
+                f"Recovered: {r * 100:.1f}%   "
+                '"I got better."'
             )
 
 
