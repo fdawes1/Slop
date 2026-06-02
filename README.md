@@ -88,6 +88,40 @@ Features a floating ember particle background, medieval typography, and category
 
 **To share:** just send someone the file, or drop it on any static host. That's it. No configuration. No `docker-compose.yml`. No tears. For once.
 
+### [`trebuchet/`](trebuchet/) — TREBUCHET
+
+A trebuchet physics simulator. Tune counterweight mass, arm ratio, sling length, projectile mass, and launch angle, then fire. The trajectory arc renders in the terminal. Tweak. Fire again. Optimise for range, or for height, or for the satisfaction of watching the parabola shift.
+
+Uses a moment-of-inertia model — I = Ma² + mb² — which is either physically accurate or physically adjacent. What I can tell you is that 100 kg counterweight, 4:1 arm ratio, 3 m sling, 5 kg projectile at 45° achieves approximately 109 metres, which is more than enough to inconvenience a French castle.
+
+> *"She's a witch! Weigh her! If she weighs the same as a duck... she could also be used as a trebuchet counterweight. These things are connected."*
+
+**Run with:**
+```bash
+cd trebuchet
+pip install -r requirements.txt
+python3 trebuchet.py
+```
+
+---
+
+### [`plague/`](plague/) — PLAGUE
+
+A medieval plague spread simulator using the SIR model — Susceptible, Infected, Recovered — rendered as a live ASCII heatmap in the terminal. Set the infection rate (beta) and recovery rate (gamma), press UNLEASH, and watch patient zero spread across the map in real time.
+
+R₀ is computed live. Keep it below 1 and the outbreak fizzles. Push beta up and watch the red creep across every cell. The simulation stops when the infected population drops below 0.05% — either burned out or contained. It will tell you which.
+
+Scientifically it is a continuous spatial SIR model with nearest-neighbour diffusion. Historically it is not far off the 1340s. Philosophically it is a reminder that R₀ > 1 is bad, which I mention because apparently some people needed reminding and we all know how that went.
+
+> *"Bring out your dead!" "I'm not dead yet." "Well, you will be soon — R₀ is 4.0 and gamma is 0.1." "...I think I'd like to go for a walk."*
+
+**Run with:**
+```bash
+cd plague
+pip install -r requirements.txt
+python3 plague.py
+```
+
 ---
 
 ## General Notes
