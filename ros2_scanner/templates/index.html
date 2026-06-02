@@ -1,0 +1,613 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ROS2 Robot Scanner</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet">
+  <style>
+    :root {
+      --dark: #0f1117; --dark2: #161b22; --dark3: #21262d;
+      --accent: #e94560; --border: #30363d; --muted: #8b949e;
+    }
+    html,body { height:100%; margin:0; overflow:hidden; font-family:"Segoe UI",system-ui,sans-serif; background:#f6f8fa; }
+
+    /* ── Topbar ── */
+    .topbar {
+      background:var(--dark); border-bottom:1px solid var(--border);
+      padding:0 14px; display:flex; align-items:center; gap:8px;
+      flex-shrink:0; height:50px;
+    }
+    .brand { font-weight:700; font-size:1rem; color:var(--accent); white-space:nowrap; margin-right:4px; }
+    .topbar input, .topbar select {
+      background:var(--dark2); border:1px solid var(--border); color:#c9d1d9;
+      border-radius:6px; padding:3px 9px; font-size:.81rem; height:30px;
+    }
+    .topbar input::placeholder { color:#484f58; }
+    .topbar input:focus, .topbar select:focus { outline:none; border-color:#388bfd; box-shadow:0 0 0 3px rgba(56,139,253,.2); }
+    .topbar select option { background:var(--dark2); }
+    .divider { width:1px; height:24px; background:var(--border); margin:0 3px; flex-shrink:0; }
+
+    /* ── Container bar (step 2) ── */
+    .cbar {
+      background:var(--dark2); border-bottom:1px solid var(--border);
+      padding:0 14px; display:none; align-items:center; gap:10px;
+      height:44px; flex-shrink:0;
+    }
+    .cbar.visible { display:flex; }
+    .cbar-label { font-size:.78rem; color:var(--muted); white-space:nowrap; }
+    .container-card {
+      display:flex; align-items:center; gap:8px; cursor:pointer;
+      border:1px solid var(--border); border-radius:6px; padding:4px 12px;
+      background:var(--dark3); color:#c9d1d9; font-size:.8rem;
+      transition:border-color .15s, background .15s;
+    }
+    .container-card:hover { border-color:#388bfd; background:#1c2a3d; }
+    .container-card.selected { border-color:#3fb950; background:#0d2117; }
+    .container-card .cname { font-family:monospace; font-weight:600; }
+    .container-card .cimage { color:var(--muted); font-size:.72rem; }
+    .ros-pill {
+      font-size:.7rem; padding:1px 6px; border-radius:10px; font-weight:600;
+      background:#1c3a2a; color:#3fb950; border:1px solid #2d6a40;
+    }
+    .zenoh-pill {
+      font-size:.7rem; padding:1px 6px; border-radius:10px;
+      background:#1a1a3e; color:#818cf8; border:1px solid #3730a3;
+    }
+    .no-ros { color:var(--muted); opacity:.6; }
+
+    /* ── Status ── */
+    .dot { width:9px; height:9px; border-radius:50%; background:#da3633; flex-shrink:0; transition:background .3s; }
+    .dot.ssh { background:#e6a817; }
+    .dot.ok  { background:#3fb950; animation:blink 2.5s infinite; }
+    @keyframes blink { 0%,100%{opacity:1} 50%{opacity:.45} }
+    #status-text { font-size:.78rem; color:var(--muted); white-space:nowrap; }
+
+    /* ── Layout ── */
+    .shell { display:flex; overflow:hidden; }
+
+    /* ── Sidebar ── */
+    .sidebar {
+      width:290px; min-width:290px; background:var(--dark);
+      border-right:1px solid var(--border); display:flex; flex-direction:column; overflow:hidden;
+    }
+    .stabs { display:flex; border-bottom:1px solid var(--border); }
+    .stab {
+      flex:1; padding:9px 4px; text-align:center; font-size:.74rem;
+      color:var(--muted); background:none; border:none; cursor:pointer;
+      border-bottom:2px solid transparent; transition:color .15s, border-color .15s;
+    }
+    .stab:hover { color:#c9d1d9; }
+    .stab.active { color:var(--accent); border-bottom-color:var(--accent); }
+    .stab .badge { font-size:.64rem; background:var(--dark3); color:var(--muted); border-radius:10px; padding:1px 5px; margin-left:3px; }
+
+    .sfilter { padding:8px; border-bottom:1px solid var(--border); }
+    .sfilter input { width:100%; background:var(--dark2); border:1px solid var(--border); color:#c9d1d9; border-radius:5px; padding:4px 8px; font-size:.78rem; }
+    .sfilter input::placeholder { color:#484f58; }
+
+    .slist { flex:1; overflow-y:auto; }
+    .slist::-webkit-scrollbar { width:4px; }
+    .slist::-webkit-scrollbar-thumb { background:var(--dark3); border-radius:2px; }
+
+    .sitem {
+      padding:6px 12px; cursor:pointer; font-size:.77rem;
+      font-family:"Courier New",monospace; border-left:3px solid transparent;
+      color:#8b949e; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+      transition:background .1s, color .1s;
+    }
+    .sitem:hover { background:var(--dark2); color:#c9d1d9; }
+    .sitem.active { background:var(--dark2); border-left-color:var(--accent); color:#fff; }
+
+    .sfooter { padding:7px 8px; border-top:1px solid var(--border); }
+
+    /* ── Content ── */
+    .content { flex:1; display:flex; flex-direction:column; overflow:hidden; min-width:0; }
+    .detail { flex:1; overflow-y:auto; padding:20px 24px; }
+
+    /* ── Stream panel ── */
+    .stream-panel {
+      display:none; flex-direction:column; background:var(--dark);
+      border-top:2px solid var(--border); max-height:38%; min-height:110px;
+    }
+    .stream-panel.open { display:flex; }
+    .stream-hdr {
+      padding:5px 12px; background:var(--dark2); border-bottom:1px solid var(--border);
+      display:flex; align-items:center; justify-content:space-between; flex-shrink:0;
+    }
+    .stream-hdr span { color:#c9d1d9; font-size:.79rem; font-family:monospace; }
+    .stream-body { flex:1; overflow-y:auto; padding:8px 12px; }
+    .stream-body::-webkit-scrollbar { width:4px; }
+    .stream-body::-webkit-scrollbar-thumb { background:var(--dark3); }
+    .smsg { border-bottom:1px solid var(--dark3); padding:3px 0 5px; color:#7ee787; font-size:.74rem; font-family:monospace; white-space:pre-wrap; word-break:break-all; }
+
+    /* ── Cards ── */
+    .icard { background:#fff; border:1px solid #d0d7de; border-radius:8px; margin-bottom:16px; overflow:hidden; }
+    .icard-hdr { background:#f6f8fa; border-bottom:1px solid #d0d7de; padding:9px 16px; font-weight:600; font-size:.84rem; color:#24292f; }
+    .icard-body { padding:16px; }
+    .type-pill { font-family:monospace; font-size:.81rem; background:#ddf4ff; color:#0550ae; padding:2px 8px; border-radius:12px; border:1px solid #b6e3ff; }
+    .code-block { background:#0d1117; color:#c9d1d9; border-radius:6px; padding:12px; font-family:monospace; font-size:.77rem; white-space:pre-wrap; max-height:280px; overflow-y:auto; }
+    .code-block::-webkit-scrollbar { width:4px; }
+    .code-block::-webkit-scrollbar-thumb { background:var(--dark3); }
+    .info-row { display:flex; align-items:baseline; gap:12px; margin-bottom:8px; font-size:.84rem; }
+    .info-label { color:#57606a; min-width:130px; }
+    .empty { text-align:center; padding:80px 20px; color:#57606a; }
+    .empty i { font-size:3rem; display:block; margin-bottom:12px; opacity:.5; }
+
+    /* ── Misc ── */
+    .spin { display:inline-block; width:13px; height:13px; border:2px solid #dee2e6; border-top-color:#6c757d; border-radius:50%; animation:spin .7s linear infinite; }
+    @keyframes spin { to { transform:rotate(360deg); } }
+    .action-row { display:flex; gap:8px; flex-wrap:wrap; margin-top:10px; }
+    textarea.form-control { font-family:monospace; font-size:.81rem; }
+  </style>
+</head>
+<body>
+
+<!-- ── Topbar (SSH connection) ─────────────────────────────────────────────── -->
+<div class="topbar">
+  <span class="brand"><i class="bi bi-robot"></i> ROS2 Scanner</span>
+  <div class="divider"></div>
+  <input id="inp-host" placeholder="Robot IP" style="width:130px">
+  <input id="inp-port" placeholder="22" value="22" type="number" style="width:55px">
+  <input id="inp-user" placeholder="Username" style="width:95px">
+  <input id="inp-pass" placeholder="Password" type="password" style="width:95px">
+  <button class="btn btn-sm btn-danger" id="btn-connect" onclick="toggleConnect()">Connect</button>
+  <div class="divider"></div>
+  <div class="dot" id="dot"></div>
+  <span id="status-text">Disconnected</span>
+</div>
+
+<!-- ── Container bar (step 2, appears after SSH connect) ──────────────────── -->
+<div class="cbar" id="cbar">
+  <i class="bi bi-box-seam" style="color:#818cf8"></i>
+  <span class="cbar-label">Container:</span>
+  <div id="container-list" style="display:flex;gap:8px;flex-wrap:wrap;align-items:center"></div>
+  <button class="btn btn-sm btn-outline-secondary ms-auto" id="btn-scan" onclick="scanContainers()" style="font-size:.75rem;padding:2px 10px;color:#aaa;border-color:#444">
+    <i class="bi bi-arrow-clockwise"></i> Scan
+  </button>
+  <input id="inp-ros-path" placeholder="ROS path (auto)" title="Override: e.g. /opt/ros/humble/setup.bash" style="width:190px">
+</div>
+
+<!-- ── Main shell ─────────────────────────────────────────────────────────── -->
+<div class="shell" id="shell" style="height:calc(100vh - 50px)">
+
+  <!-- Sidebar -->
+  <div class="sidebar">
+    <div class="stabs">
+      <button class="stab active" id="stab-topics"   onclick="switchTab('topics')">
+        <i class="bi bi-broadcast"></i> Topics <span class="badge" id="cnt-topics">0</span>
+      </button>
+      <button class="stab"        id="stab-services" onclick="switchTab('services')">
+        <i class="bi bi-gear"></i> Services <span class="badge" id="cnt-services">0</span>
+      </button>
+      <button class="stab"        id="stab-actions"  onclick="switchTab('actions')">
+        <i class="bi bi-lightning-charge"></i> Actions <span class="badge" id="cnt-actions">0</span>
+      </button>
+    </div>
+    <div class="sfilter">
+      <input type="text" id="search" placeholder="Filter…" oninput="renderList(this.value.toLowerCase())">
+    </div>
+    <div class="slist" id="slist"></div>
+    <div class="sfooter">
+      <button class="btn btn-sm btn-outline-secondary w-100" id="btn-refresh" onclick="discover()">
+        <i class="bi bi-arrow-clockwise"></i> Refresh
+      </button>
+    </div>
+  </div>
+
+  <!-- Content + stream -->
+  <div class="content">
+    <div class="detail" id="detail">
+      <div class="empty">
+        <i class="bi bi-robot"></i>
+        <h5>ROS2 Robot Scanner</h5>
+        <p>Enter your robot's IP and connect via SSH.<br>
+           The app will find the Docker container running ROS2 and let you interact with all topics, services, and actions.</p>
+      </div>
+    </div>
+
+    <div class="stream-panel" id="stream-panel">
+      <div class="stream-hdr">
+        <span>
+          <i class="bi bi-circle-fill" style="color:#3fb950;font-size:.55rem;vertical-align:middle"></i>
+          &nbsp;Live: <b id="stream-name"></b>
+          <span id="stream-cnt" style="color:#484f58;font-size:.72rem;margin-left:8px">0 msgs</span>
+        </span>
+        <button class="btn btn-sm btn-outline-secondary" style="font-size:.72rem;padding:2px 8px;color:#aaa;border-color:#444" onclick="stopStream()">
+          <i class="bi bi-stop-circle"></i> Stop
+        </button>
+      </div>
+      <div class="stream-body" id="stream-body"></div>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+<script>
+/* ── State ── */
+const S = {
+  connected: false, ready: false,
+  tab: 'topics', data: {topics:[], services:[], actions:[]},
+  selected: null, selectedContainer: null,
+  streamSrc: null, streamTopic: null, streamCnt: 0,
+};
+
+/* ── SSH connect / disconnect ── */
+async function toggleConnect() {
+  if (S.connected) {
+    await api('/api/disconnect', 'POST');
+    setSSHState(false);
+    return;
+  }
+  const host=v('inp-host'), port=v('inp-port')||'22', user=v('inp-user'), pass=v('inp-pass');
+  if (!host||!user) return alert('Host and username are required.');
+  setBtn(true);
+  setStatus('Connecting via SSH…');
+  const r = await api('/api/connect','POST',{host, port:+port, username:user, password:pass});
+  if (r.success) {
+    setSSHState(true, host);
+    scanContainers();
+  } else {
+    setStatus(`SSH error: ${r.error}`);
+    setBtn(false);
+    id('btn-connect').textContent = 'Connect';
+  }
+}
+
+function setSSHState(ok, host='') {
+  S.connected = ok;
+  S.ready = false;
+  const dot=id('dot'), btn=id('btn-connect'), cbar=id('cbar');
+  dot.className = ok ? 'dot ssh' : 'dot';
+  id('status-text').textContent = ok ? `SSH: ${host}` : 'Disconnected';
+  id('status-text').style.color = ok ? '#e6a817' : '#8b949e';
+  btn.textContent = ok ? 'Disconnect' : 'Connect';
+  btn.className = ok ? 'btn btn-sm btn-outline-secondary' : 'btn btn-sm btn-danger';
+  cbar.classList.toggle('visible', ok);
+  adjustShellHeight();
+  setBtn(false);
+  if (!ok) {
+    id('container-list').innerHTML = '';
+    S.data = {topics:[],services:[],actions:[]};
+    renderList();
+    showEmpty();
+  }
+}
+
+function setBtn(busy) {
+  const btn=id('btn-connect');
+  btn.disabled=busy;
+  if (busy) btn.innerHTML='<span class="spin"></span>';
+}
+
+function setStatus(msg, color='#8b949e') {
+  id('status-text').textContent=msg;
+  id('status-text').style.color=color;
+}
+
+function adjustShellHeight() {
+  const cbarH = id('cbar').classList.contains('visible') ? 44 : 0;
+  id('shell').style.height = `calc(100vh - 50px - ${cbarH}px)`;
+}
+
+/* ── Container scanning ── */
+async function scanContainers() {
+  const btn=id('btn-scan'), el=id('container-list');
+  btn.disabled=true; btn.innerHTML='<span class="spin"></span>';
+  el.innerHTML='<span style="color:#8b949e;font-size:.78rem"><span class="spin"></span> Scanning containers…</span>';
+
+  const r = await api('/api/containers');
+  btn.disabled=false; btn.innerHTML='<i class="bi bi-arrow-clockwise"></i> Scan';
+
+  if (r.error) { el.innerHTML=`<span style="color:#f85149;font-size:.78rem">Error: ${esc(r.error)}</span>`; return; }
+
+  const containers = r.containers || [];
+  if (!containers.length) {
+    el.innerHTML='<span style="color:#8b949e;font-size:.78rem">No running containers found</span>';
+    return;
+  }
+
+  el.innerHTML='';
+  let autoSelected = null;
+
+  containers.forEach(c => {
+    const nameLC = c.name.toLowerCase();
+    const isZenoh = nameLC.includes('zenoh');
+    const hasRos  = c.has_ros;
+    const card = document.createElement('div');
+    card.className='container-card' + (hasRos ? '' : ' no-ros');
+    card.dataset.id = c.id;
+    card.dataset.name = c.name;
+    card.innerHTML = `
+      <i class="bi bi-${isZenoh ? 'broadcast' : 'box-seam'}" style="color:${isZenoh?'#818cf8':'#57606a'}"></i>
+      <div>
+        <div class="cname">${esc(c.name)}</div>
+        <div class="cimage">${esc(c.image)}</div>
+      </div>
+      ${hasRos  ? `<span class="ros-pill">ROS2</span>` : ''}
+      ${isZenoh ? `<span class="zenoh-pill">Zenoh</span>` : ''}
+    `;
+    if (hasRos) {
+      card.onclick = () => pickContainer(c.id, c.name);
+      // Auto-select: prefer zenoh_server, then first ROS container
+      if (!autoSelected || isZenoh) autoSelected = c;
+    }
+    el.appendChild(card);
+  });
+
+  // Auto-select if there's a clear winner
+  if (autoSelected) {
+    pickContainer(autoSelected.id, autoSelected.name);
+  }
+}
+
+async function pickContainer(cid, cname) {
+  // Visual selection
+  document.querySelectorAll('.container-card').forEach(c => c.classList.remove('selected'));
+  const card = document.querySelector(`.container-card[data-id="${cid}"]`);
+  if (card) card.classList.add('selected');
+
+  setStatus(`Configuring ${cname}…`, '#e6a817');
+
+  const rosPath = v('inp-ros-path') || null;
+  const r = await api('/api/container/select','POST',{container_id:cid, ros_path:rosPath});
+
+  if (r.error) {
+    setStatus(`Container error: ${r.error}`, '#f85149');
+    return;
+  }
+
+  S.ready = true;
+  S.selectedContainer = {id:cid, name:cname};
+
+  const rmw = r.middleware || '';
+  const isZenoh = rmw.includes('zenoh');
+  const distroLabel = r.ros_distro ? ` · ROS2 ${r.ros_distro}` : '';
+  const rmwLabel    = rmw ? ` · ${rmw}` : '';
+
+  id('dot').className = 'dot ok';
+  setStatus(`${r.container_name}${distroLabel}${rmwLabel}`, '#3fb950');
+
+  discover();
+}
+
+/* ── ROS2 discovery ── */
+async function discover() {
+  if (!S.ready) return;
+  const btn=id('btn-refresh');
+  btn.disabled=true; btn.innerHTML='<span class="spin"></span> Scanning…';
+  const r = await api('/api/discover');
+  if (r.error) { console.error(r.error); }
+  else {
+    S.data=r;
+    id('cnt-topics').textContent   = r.topics.length;
+    id('cnt-services').textContent = r.services.length;
+    id('cnt-actions').textContent  = r.actions.length;
+    renderList();
+  }
+  btn.disabled=false; btn.innerHTML='<i class="bi bi-arrow-clockwise"></i> Refresh';
+}
+
+/* ── Tabs + list ── */
+function switchTab(tab) {
+  S.tab=tab; S.selected=null;
+  document.querySelectorAll('.stab').forEach(t=>t.classList.remove('active'));
+  id('stab-'+tab).classList.add('active');
+  id('search').value='';
+  renderList(); showEmpty();
+}
+
+function renderList(filter='') {
+  const items = S.data[S.tab]||[], el=id('slist');
+  const vis = filter ? items.filter(i=>i.includes(filter)) : items;
+  if (!vis.length) {
+    el.innerHTML=`<div style="padding:20px;text-align:center;color:#484f58;font-size:.78rem">${S.ready?'Nothing found':'Connect + select container first'}</div>`;
+    return;
+  }
+  el.innerHTML='';
+  vis.forEach(name=>{
+    const d=document.createElement('div');
+    d.className='sitem'+(name===S.selected?' active':'');
+    d.textContent=name; d.title=name;
+    d.onclick=()=>select(name);
+    el.appendChild(d);
+  });
+}
+
+function select(name) {
+  S.selected=name; renderList(id('search').value.toLowerCase());
+  if      (S.tab==='topics')   showTopic(name);
+  else if (S.tab==='services') showService(name);
+  else                         showAction(name);
+}
+
+/* ── Topic detail ── */
+async function showTopic(topic) {
+  setDetail(`
+    <div class="d-flex align-items-center gap-2 mb-3">
+      <i class="bi bi-broadcast" style="color:#e94560;font-size:1.3rem"></i>
+      <h5 class="mb-0" style="font-family:monospace">${esc(topic)}</h5>
+      <span class="spin"></span>
+    </div><div id="topic-body"></div>`);
+  const info = await api('/api/topic/info','POST',{topic});
+  const streaming = S.streamTopic===topic;
+  id('topic-body').innerHTML=`
+    <div class="icard">
+      <div class="icard-hdr"><i class="bi bi-info-circle"></i> Info</div>
+      <div class="icard-body">
+        <div class="info-row"><span class="info-label">Type</span><span class="type-pill">${esc(info.type||'—')}</span></div>
+        <div class="info-row"><span class="info-label">Publishers</span><span class="badge bg-primary">${info.publisher_count}</span></div>
+        <div class="info-row"><span class="info-label">Subscribers</span><span class="badge bg-secondary">${info.subscriber_count}</span></div>
+        <div class="action-row">
+          <button class="btn btn-sm btn-outline-secondary" onclick="echoOnce(${q(topic)})"><i class="bi bi-eye"></i> Echo Once</button>
+          <button class="btn btn-sm ${streaming?'btn-danger':'btn-success'}"
+                  onclick="${streaming?'stopStream()':'startStream('+q(topic)+')'}">
+            <i class="bi bi-${streaming?'stop-circle':'play-circle'}"></i> ${streaming?'Stop Stream':'Live Stream'}
+          </button>
+        </div>
+      </div>
+    </div>
+    <div class="icard" id="echo-card" style="display:none">
+      <div class="icard-hdr"><i class="bi bi-terminal"></i> Latest Message</div>
+      <div class="icard-body"><div class="code-block" id="echo-out">…</div></div>
+    </div>
+    <div class="icard">
+      <div class="icard-hdr"><i class="bi bi-send"></i> Publish</div>
+      <div class="icard-body">
+        <div class="mb-2"><label class="form-label" style="font-size:.79rem;color:#57606a">Message type</label>
+          <input class="form-control form-control-sm" id="pub-type" value="${esc(info.type||'')}" placeholder="std_msgs/msg/String"></div>
+        <div class="mb-2"><label class="form-label" style="font-size:.79rem;color:#57606a">Data (YAML)</label>
+          <textarea class="form-control" id="pub-data" rows="3">{data: hello}</textarea></div>
+        <button class="btn btn-sm btn-primary" onclick="publishTopic(${q(topic)})"><i class="bi bi-send"></i> Publish</button>
+        <div id="pub-result" class="mt-2"></div>
+      </div>
+    </div>`;
+}
+
+async function echoOnce(topic) {
+  id('echo-card').style.display='block';
+  id('echo-out').textContent='Waiting for message…';
+  const r = await api('/api/topic/echo_once','POST',{topic});
+  id('echo-out').textContent=r.data;
+}
+
+async function publishTopic(topic) {
+  const el=id('pub-result');
+  el.innerHTML='<span class="spin"></span> Publishing…';
+  const r = await api('/api/topic/publish','POST',{topic, type:v('pub-type'), data:v('pub-data')});
+  el.innerHTML=`<div class="code-block">${esc(r.output||r.error||'Done')}</div>`;
+}
+
+/* ── Service detail ── */
+async function showService(service) {
+  setDetail(`
+    <div class="d-flex align-items-center gap-2 mb-3">
+      <i class="bi bi-gear" style="color:#0d6efd;font-size:1.3rem"></i>
+      <h5 class="mb-0" style="font-family:monospace">${esc(service)}</h5>
+      <span class="spin"></span>
+    </div><div id="srv-body"></div>`);
+  const r = await api('/api/service/type','POST',{service});
+  id('srv-body').innerHTML=`
+    <div class="icard">
+      <div class="icard-hdr"><i class="bi bi-info-circle"></i> Info</div>
+      <div class="icard-body">
+        <div class="info-row"><span class="info-label">Type</span><span class="type-pill">${esc(r.type||'—')}</span></div>
+      </div>
+    </div>
+    <div class="icard">
+      <div class="icard-hdr"><i class="bi bi-terminal"></i> Call Service</div>
+      <div class="icard-body">
+        <div class="mb-2"><label class="form-label" style="font-size:.79rem;color:#57606a">Service type</label>
+          <input class="form-control form-control-sm" id="srv-type" value="${esc(r.type||'')}" placeholder="std_srvs/srv/SetBool"></div>
+        <div class="mb-2"><label class="form-label" style="font-size:.79rem;color:#57606a">Request (YAML)</label>
+          <textarea class="form-control" id="srv-data" rows="3">{}</textarea></div>
+        <button class="btn btn-sm btn-primary" onclick="callService(${q(service)})"><i class="bi bi-play-circle"></i> Call</button>
+        <div id="srv-result" class="mt-2"></div>
+      </div>
+    </div>`;
+}
+
+async function callService(service) {
+  const el=id('srv-result');
+  el.innerHTML='<span class="spin"></span> Calling…';
+  const r = await api('/api/service/call','POST',{service, type:v('srv-type'), data:v('srv-data')});
+  el.innerHTML=`<div class="code-block">${esc(r.output||r.error||'Done')}</div>`;
+}
+
+/* ── Action detail ── */
+async function showAction(action) {
+  setDetail(`
+    <div class="d-flex align-items-center gap-2 mb-3">
+      <i class="bi bi-lightning-charge" style="color:#fd7e14;font-size:1.3rem"></i>
+      <h5 class="mb-0" style="font-family:monospace">${esc(action)}</h5>
+      <span class="spin"></span>
+    </div><div id="act-body"></div>`);
+  const info = await api('/api/action/info','POST',{action});
+  id('act-body').innerHTML=`
+    <div class="icard">
+      <div class="icard-hdr"><i class="bi bi-info-circle"></i> Info</div>
+      <div class="icard-body">
+        <div class="info-row"><span class="info-label">Type</span><span class="type-pill">${esc(info.type||'—')}</span></div>
+        ${info.raw ? `<div class="code-block mt-2" style="max-height:150px">${esc(info.raw.trim())}</div>` : ''}
+      </div>
+    </div>
+    <div class="icard">
+      <div class="icard-hdr"><i class="bi bi-play-circle"></i> Send Goal</div>
+      <div class="icard-body">
+        <div class="mb-2"><label class="form-label" style="font-size:.79rem;color:#57606a">Action type</label>
+          <input class="form-control form-control-sm" id="act-type" value="${esc(info.type||'')}" placeholder="nav2_msgs/action/NavigateToPose"></div>
+        <div class="mb-2"><label class="form-label" style="font-size:.79rem;color:#57606a">Goal (YAML)</label>
+          <textarea class="form-control" id="act-goal" rows="4">{}</textarea></div>
+        <button class="btn btn-sm btn-warning" onclick="sendGoal(${q(action)})"><i class="bi bi-send"></i> Send Goal</button>
+        <div id="act-result" class="mt-2"></div>
+      </div>
+    </div>`;
+}
+
+async function sendGoal(action) {
+  const el=id('act-result');
+  el.innerHTML='<span class="spin"></span> Sending…';
+  const r = await api('/api/action/send_goal','POST',{action, type:v('act-type'), goal:v('act-goal')});
+  el.innerHTML=`<div class="code-block">${esc(r.output||r.error||'Done')}</div>`;
+}
+
+/* ── Topic streaming ── */
+function startStream(topic) {
+  stopStream(false);
+  S.streamTopic=topic; S.streamCnt=0;
+  id('stream-name').textContent=topic;
+  id('stream-cnt').textContent='0 msgs';
+  id('stream-body').innerHTML='';
+  id('stream-panel').classList.add('open');
+  const src=new EventSource(`/api/topic/stream?topic=${encodeURIComponent(topic)}`);
+  S.streamSrc=src;
+  src.onmessage=(e)=>{
+    try {
+      const msg=JSON.parse(e.data);
+      if (msg.error) { appendStream(`<span style="color:#f85149">Error: ${esc(msg.error)}</span>`); stopStream(false); return; }
+      S.streamCnt++;
+      id('stream-cnt').textContent=`${S.streamCnt} msgs`;
+      appendStream(`<div class="smsg">${esc(msg.message)}</div>`);
+      const body=id('stream-body');
+      const msgs=body.querySelectorAll('.smsg');
+      if (msgs.length>300) msgs[0].remove();
+      body.scrollTop=body.scrollHeight;
+    } catch(_){}
+  };
+  src.onerror=()=>{ appendStream('<span style="color:#8b949e;font-size:.72rem">Stream ended.</span>'); stopStream(false); };
+  if (S.selected===topic && S.tab==='topics') showTopic(topic);
+}
+
+function stopStream(refresh=true) {
+  if (S.streamSrc) { S.streamSrc.close(); S.streamSrc=null; }
+  const prev=S.streamTopic; S.streamTopic=null;
+  id('stream-panel').classList.remove('open');
+  if (refresh && prev && S.selected===prev && S.tab==='topics') showTopic(prev);
+}
+
+function appendStream(html) { id('stream-body').insertAdjacentHTML('beforeend',html); }
+
+/* ── Helpers ── */
+function showEmpty() {
+  const icons={topics:'broadcast',services:'gear',actions:'lightning-charge'};
+  setDetail(`<div class="empty"><i class="bi bi-${icons[S.tab]}"></i>
+    <h5>Select a ${S.tab.slice(0,-1)}</h5>
+    <p>Click an item in the sidebar to inspect and interact with it.</p></div>`);
+}
+function setDetail(html) { id('detail').innerHTML=html; }
+function id(x) { return document.getElementById(x); }
+function v(x)  { const el=id(x); return el ? el.value.trim() : ''; }
+function esc(s){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+function q(s)  { return JSON.stringify(s); }
+
+async function api(url, method='GET', body=null) {
+  const opts={method, headers:{}};
+  if (body) { opts.body=JSON.stringify(body); opts.headers['Content-Type']='application/json'; }
+  try { return (await fetch(url,opts)).json(); }
+  catch(e) { return {error:e.message}; }
+}
+
+document.getElementById('inp-host').addEventListener('keydown', e => { if(e.key==='Enter') toggleConnect(); });
+</script>
+</body>
+</html>
