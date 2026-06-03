@@ -136,6 +136,21 @@ def service_call():
     return jsonify(result)
 
 
+# ── Interface introspection ───────────────────────────────────────────────────
+
+@app.route("/api/interface/proto", methods=["POST"])
+def interface_proto():
+    type_name = request.get_json().get("type", "")
+    if not type_name:
+        return jsonify({"error": "type required"}), 400
+    if not ros.ready:
+        return jsonify({"error": "No container selected"}), 400
+    try:
+        return jsonify(ros.get_interface_proto(type_name))
+    except Exception as exc:
+        return jsonify({"error": str(exc)}), 500
+
+
 # ── Action endpoints ──────────────────────────────────────────────────────────
 
 @app.route("/api/action/info", methods=["POST"])

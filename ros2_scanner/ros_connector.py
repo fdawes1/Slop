@@ -323,6 +323,18 @@ class ROSConnector:
         out, err = self._run(cmd, timeout=30)
         return {"output": out, "error": err}
 
+    # ── Interface introspection ───────────────────────────────────────
+
+    def get_interface_proto(self, type_name: str) -> dict:
+        """Return the YAML prototype for a message/service/action type."""
+        out, err = self._run(
+            f"ros2 interface proto {shlex.quote(type_name)} 2>/dev/null", timeout=10
+        )
+        proto = out.strip()
+        if not proto:
+            return {"error": err.strip() or "No prototype returned"}
+        return {"proto": proto}
+
     # ── Topic streaming (SSE) ─────────────────────────────────────────
 
     def stream_topic(self, topic: str) -> Generator[str, None, None]:

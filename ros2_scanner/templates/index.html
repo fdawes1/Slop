@@ -32,10 +32,11 @@
     /* ── Container bar (step 2) ── */
     .cbar {
       background:var(--dark2); border-bottom:1px solid var(--border);
-      padding:0 14px; display:none; align-items:center; gap:10px;
-      height:44px; flex-shrink:0;
+      padding:6px 14px; display:none; align-items:flex-start; gap:10px;
+      min-height:44px; flex-shrink:0; flex-wrap:wrap;
     }
     .cbar.visible { display:flex; }
+    .cbar-controls { display:flex; align-items:center; gap:8px; margin-left:auto; flex-shrink:0; }
     .cbar-label { font-size:.78rem; color:var(--muted); white-space:nowrap; }
     .container-card {
       display:flex; align-items:center; gap:8px; cursor:pointer;
@@ -159,13 +160,17 @@
 
 <!-- ── Container bar (step 2, appears after SSH connect) ──────────────────── -->
 <div class="cbar" id="cbar">
-  <i class="bi bi-box-seam" style="color:#818cf8"></i>
-  <span class="cbar-label">Container:</span>
-  <div id="container-list" style="display:flex;gap:8px;flex-wrap:wrap;align-items:center"></div>
-  <button class="btn btn-sm btn-outline-secondary ms-auto" id="btn-scan" onclick="scanContainers()" style="font-size:.75rem;padding:2px 10px;color:#aaa;border-color:#444">
-    <i class="bi bi-arrow-clockwise"></i> Scan
-  </button>
-  <input id="inp-ros-path" placeholder="ROS path (auto)" title="Override: e.g. /opt/ros/humble/setup.bash" style="width:190px">
+  <div style="display:flex;align-items:center;gap:8px;flex-shrink:0">
+    <i class="bi bi-box-seam" style="color:#818cf8"></i>
+    <span class="cbar-label">Container:</span>
+  </div>
+  <div id="container-list" style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;flex:1;min-width:0"></div>
+  <div class="cbar-controls">
+    <button class="btn btn-sm btn-outline-secondary" id="btn-scan" onclick="scanContainers()" style="font-size:.75rem;padding:2px 10px;color:#aaa;border-color:#444">
+      <i class="bi bi-arrow-clockwise"></i> Scan
+    </button>
+    <input id="inp-ros-path" placeholder="ROS path (auto)" title="Override: e.g. /opt/ros/humble/setup.bash" style="width:190px">
+  </div>
 </div>
 
 <!-- ── Main shell ─────────────────────────────────────────────────────────── -->
@@ -286,7 +291,8 @@ function setStatus(msg, color='#8b949e') {
 }
 
 function adjustShellHeight() {
-  const cbarH = id('cbar').classList.contains('visible') ? 44 : 0;
+  const cbar = id('cbar');
+  const cbarH = cbar.classList.contains('visible') ? cbar.offsetHeight : 0;
   id('shell').style.height = `calc(100vh - 50px - ${cbarH}px)`;
 }
 
@@ -339,6 +345,8 @@ async function scanContainers() {
   if (autoSelected) {
     pickContainer(autoSelected.id, autoSelected.name);
   }
+  // Recalculate shell height now that containers may have wrapped
+  adjustShellHeight();
 }
 
 async function pickContainer(cid, cname) {
@@ -462,6 +470,7 @@ async function showTopic(topic) {
         <div id="pub-result" class="mt-2"></div>
       </div>
     </div>`;
+  fillProto(info.type, 'pub-data');
 }
 
 async function echoOnce(topic) {
@@ -505,6 +514,7 @@ async function showService(service) {
         <div id="srv-result" class="mt-2"></div>
       </div>
     </div>`;
+  fillProto(r.type, 'srv-data');
 }
 
 async function callService(service) {
@@ -542,6 +552,7 @@ async function showAction(action) {
         <div id="act-result" class="mt-2"></div>
       </div>
     </div>`;
+  fillProto(info.type, 'act-goal');
 }
 
 async function sendGoal(action) {
@@ -586,6 +597,14 @@ function stopStream(refresh=true) {
 }
 
 function appendStream(html) { id('stream-body').insertAdjacentHTML('beforeend',html); }
+
+/* ── Interface proto autocomplete ── */
+async function fillProto(type, targetId) {
+  if (!type) return;
+  const r = await api('/api/interface/proto', 'POST', {type});
+  const el = id(targetId);
+  if (el && r.proto && !r.error) el.value = r.proto.trim();
+}
 
 /* ── Helpers ── */
 function showEmpty() {
