@@ -124,6 +124,25 @@ python3 plague.py
 
 ---
 
+### [`traffic-map/`](traffic-map/) — Traffic Map
+
+A live world map of everywhere your machine is talking to. Flask backend reads active network connections via `psutil`, geolocates each remote IP in batches via ip-api.com, and renders them on a dark Leaflet map with great-circle arcs pulsing out from your location to theirs.
+
+The sidebar ticks over every four seconds, listing each destination by IP, city, country, and ISP. You will discover that your computer is having conversations you knew nothing about. With servers in Frankfurt. And Oregon. And, somehow, Singapore. It does not explain itself. It never does.
+
+> *"What is your name? What is your quest? What is your IP address and approximate geolocation?" — The Bridge of Death, modernised for the age of cloud infrastructure*
+
+**Run with:**
+```bash
+cd traffic-map
+pip install -r requirements.txt
+python3 app.py
+# Then: http://localhost:5000
+```
+Root may be required on some systems — `psutil.net_connections()` looks at the raw socket table, which apparently requires either root privileges or the right to not be trusted. On Linux, one of those is easier to obtain than the other.
+
+---
+
 ## General Notes
 
 - Everything here requires Python 3.10+ because I refuse to write `Union[X, Y]` when `X | Y` exists.
