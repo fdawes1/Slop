@@ -1,16 +1,37 @@
-from flask import Flask, Response, jsonify, render_template, request, stream_with_context
+import json
+import os
+
+from flask import Flask, Response, jsonify, make_response, render_template, request, stream_with_context
 
 from ros_connector import ROSConnector
 
 app = Flask(__name__)
 ros = ROSConnector()
 
+CREDS_FILE  = os.path.join(os.path.dirname(__file__), "credentials.json")
+CONFIG_FILE = os.path.join(os.path.dirname(__file__), "config.json")
+
+
+def _load_creds():
+    try:
+        with open(CREDS_FILE) as f:
+            return json.load(f)
+    except (FileNotFoundError, json.JSONDecodeError):
+        return []
+
+
+def _save_creds(entries):
+    with open(CREDS_FILE, "w") as f:
+        json.dump(entries, f, indent=2)
+
 
 # ── Connection ────────────────────────────────────────────────────────────────
 
 @app.route("/")
 def index():
-    return render_template("index.html")
+    resp = make_response(render_template("index.html"))
+    resp.headers["Cache-Control"] = "no-store"
+    return resp
 
 
 @app.route("/api/connect", methods=["POST"])
@@ -29,6 +50,54 @@ def connect():
 @app.route("/api/disconnect", methods=["POST"])
 def disconnect():
     ros.disconnect()
+    return jsonify({"success": True})
+
+
+# ── Saved credentials ─────────────────────────────────────────────────────────
+
+@app.route("/api/credentials")
+def get_credentials():
+    return jsonify({"credentials": _load_creds()})
+
+
+@app.route("/api/credentials", methods=["POST"])
+def save_credential():
+    data = request.get_json()
+    entry = {
+        "host":     data.get("host", ""),
+        "port":     int(data.get("port", 22)),
+        "username": data.get("username", ""),
+        "password": data.get("password", ""),
+    }
+    entries = _load_creds()
+    # Deduplicate by host+username+port; update password if re-saved
+    for e in entries:
+        if e["host"] == entry["host"] and e["username"] == entry["username"] and e["port"] == entry["port"]:
+            e["password"] = entry["password"]
+            _save_creds(entries)
+            return jsonify({"success": True})
+    entries.insert(0, entry)
+    entries = entries[:20]  # keep last 20
+    _save_creds(entries)
+    return jsonify({"success": True})
+
+
+# ── Config / saved views ─────────────────────────────────────────────────────
+
+@app.route("/api/config")
+def get_config():
+    try:
+        with open(CONFIG_FILE) as f:
+            return jsonify(json.load(f))
+    except (FileNotFoundError, json.JSONDecodeError):
+        return jsonify({})
+
+
+@app.route("/api/config", methods=["POST"])
+def save_config():
+    cfg = request.get_json()
+    with open(CONFIG_FILE, "w") as f:
+        json.dump(cfg, f, indent=2)
     return jsonify({"success": True})
 
 

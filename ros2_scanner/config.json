@@ -1,0 +1,97 @@
+{
+  "last_session": {
+    "streaming_topics": [],
+    "hidden_series": [
+      "debug/outlet_transfer_filtered::header.stamp.sec",
+      "debug/outlet_transfer_filtered::header.stamp.nanosec",
+      "debug/outlet_transfer_filtered::radiation_type",
+      "debug/outlet_transfer_filtered::field_of_view",
+      "debug/outlet_transfer_filtered::min_range",
+      "debug/outlet_transfer_filtered::max_range",
+      "debug/outlet_transfer_filtered::variance",
+      "debug/inlet_transfer_filtered::header.stamp.sec",
+      "debug/inlet_transfer_filtered::header.stamp.nanosec",
+      "debug/inlet_transfer_filtered::radiation_type",
+      "debug/inlet_transfer_filtered::field_of_view",
+      "debug/inlet_transfer_filtered::min_range",
+      "debug/inlet_transfer_filtered::max_range",
+      "debug/inlet_transfer_filtered::variance",
+      "debug/inlet_upstream_filtered::header.stamp.sec",
+      "debug/inlet_upstream_filtered::header.stamp.nanosec",
+      "debug/inlet_upstream_filtered::radiation_type",
+      "debug/inlet_upstream_filtered::field_of_view",
+      "debug/inlet_upstream_filtered::min_range",
+      "debug/inlet_upstream_filtered::max_range",
+      "debug/inlet_upstream_filtered::variance"
+    ],
+    "chart_window": 400,
+    "output_width": 945
+  },
+  "saved_views": [
+    {
+      "chart_window": 400,
+      "hidden_series": [
+        "debug/outlet_transfer_filtered::header.stamp.sec",
+        "debug/outlet_transfer_filtered::header.stamp.nanosec",
+        "debug/outlet_transfer_filtered::radiation_type",
+        "debug/outlet_transfer_filtered::field_of_view",
+        "debug/outlet_transfer_filtered::min_range",
+        "debug/outlet_transfer_filtered::max_range",
+        "debug/outlet_transfer_filtered::variance",
+        "debug/inlet_transfer_filtered::header.stamp.sec",
+        "debug/inlet_transfer_filtered::header.stamp.nanosec",
+        "debug/inlet_transfer_filtered::radiation_type",
+        "debug/inlet_transfer_filtered::field_of_view",
+        "debug/inlet_transfer_filtered::min_range",
+        "debug/inlet_transfer_filtered::max_range",
+        "debug/inlet_transfer_filtered::variance",
+        "debug/inlet_upstream_filtered::header.stamp.sec",
+        "debug/inlet_upstream_filtered::header.stamp.nanosec",
+        "debug/inlet_upstream_filtered::radiation_type",
+        "debug/inlet_upstream_filtered::field_of_view",
+        "debug/inlet_upstream_filtered::min_range",
+        "debug/inlet_upstream_filtered::max_range",
+        "debug/inlet_upstream_filtered::variance"
+      ],
+      "name": "debug_tray_change_states",
+      "streaming_topics": [
+        "/debug/inlet_transfer_filtered",
+        "/debug/inlet_upstream_filtered",
+        "/debug/outlet_transfer_filtered"
+      ]
+    },
+    {
+      "chart_window": 400,
+      "hidden_series": [
+        "debug/outlet_transfer_filtered::header.stamp.sec",
+        "debug/outlet_transfer_filtered::header.stamp.nanosec",
+        "debug/outlet_transfer_filtered::radiation_type",
+        "debug/outlet_transfer_filtered::field_of_view",
+        "debug/outlet_transfer_filtered::min_range",
+        "debug/outlet_transfer_filtered::max_range",
+        "debug/outlet_transfer_filtered::variance",
+        "debug/inlet_transfer_filtered::header.stamp.sec",
+        "debug/inlet_transfer_filtered::header.stamp.nanosec",
+        "debug/inlet_transfer_filtered::radiation_type",
+        "debug/inlet_transfer_filtered::field_of_view",
+        "debug/inlet_transfer_filtered::min_range",
+        "debug/inlet_transfer_filtered::max_range",
+        "debug/inlet_transfer_filtered::variance",
+        "debug/inlet_upstream_filtered::header.stamp.sec",
+        "debug/inlet_upstream_filtered::header.stamp.nanosec",
+        "debug/inlet_upstream_filtered::radiation_type",
+        "debug/inlet_upstream_filtered::field_of_view",
+        "debug/inlet_upstream_filtered::min_range",
+        "debug/inlet_upstream_filtered::max_range",
+        "debug/inlet_upstream_filtered::variance"
+      ],
+      "name": "signal_lighting",
+      "streaming_topics": [
+        "/blue_signal_light_status",
+        "/green_signal_light_status",
+        "/red_signal_light_status",
+        "/yellow_signal_light_status"
+      ]
+    }
+  ]
+}

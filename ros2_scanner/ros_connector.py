@@ -1,11 +1,33 @@
 import json
 import re
-import select
 import shlex
 import threading
+import time
 from typing import Generator, List, Optional, Tuple
 
 import paramiko
+
+_ANSI_RE = re.compile(r"\x1b\[[0-9;]*[mGKHFJA-Z]")
+# Zenoh/Rust tracing lines: "2026-06-03T08:00:00.000000Z  INFO ThreadId(...) zenoh::..."
+_ZENOH_LOG_RE = re.compile(r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d+Z\s+(INFO|WARN|ERROR|DEBUG|TRACE)\b")
+# RCL deprecation warnings and rclpy cleanup errors that are always benign noise
+_RCL_NOISE_RE = re.compile(
+    r"^\[(?:WARN|INFO)\]\s+\[[\d.]+\]\s+\[rcl\]:.*$|^!rclpy\.ok\(\)\s*$",
+    re.MULTILINE,
+)
+
+
+def _strip_ansi(text: str) -> str:
+    return _ANSI_RE.sub("", text)
+
+
+def _is_zenoh_log(line: str) -> bool:
+    return bool(_ZENOH_LOG_RE.match(line.lstrip()))
+
+
+def _clean_cmd(text: str) -> str:
+    """Strip ANSI codes, RCL deprecation warnings, and rclpy cleanup noise."""
+    return _RCL_NOISE_RE.sub("", _strip_ansi(text)).strip()
 
 
 class ROSConnector:
@@ -31,6 +53,7 @@ class ROSConnector:
         self.container_name: Optional[str] = None
         self.ros_setup: Optional[str] = None
         self.ros_distro: Optional[str] = None
+        self.ros_overlays: List[str] = []
         self.middleware: Optional[str] = None
         self.ready: bool = False  # True once container is selected
 
@@ -85,6 +108,7 @@ class ROSConnector:
         self.container_name = None
         self.ros_setup = None
         self.ros_distro = None
+        self.ros_overlays: List[str] = []
         self.middleware = None
         self.ready = False
 
@@ -147,6 +171,7 @@ class ROSConnector:
             self.ros_distro = "custom"
         else:
             self._detect_ros_in_container()
+            self.ros_overlays = self._detect_workspace_overlays()
 
         self._detect_middleware()
         self.ready = True
@@ -184,6 +209,70 @@ class ROSConnector:
             self.ros_distro = distro
             self.ros_setup = f"/opt/ros/{distro}/setup.bash"
 
+    def _detect_workspace_overlays(self) -> List[str]:
+        """Find workspace overlay setup.bash files."""
+        found: List[str] = []
+        seen: set = set()
+
+        def _check_paths(paths: List[str]) -> None:
+            if not paths:
+                return
+            checks = '; '.join(f"[ -f {p} ] && echo {p}" for p in paths)
+            out, _ = self._run_raw(
+                f"docker exec {self._container_id} bash -c '{checks}' 2>/dev/null",
+                timeout=5,
+            )
+            for line in out.splitlines():
+                p = line.strip()
+                if p and p not in seen:
+                    seen.add(p)
+                    found.append(p)
+
+        # Pass 1: login shell — picks up anything the container already sources
+        out, _ = self._run_raw(
+            f"docker exec {self._container_id} bash -l -c 'echo $AMENT_PREFIX_PATH' 2>/dev/null",
+            timeout=8,
+        )
+        install_dirs: List[str] = []
+        dir_seen: set = set()
+        for prefix in out.split(':'):
+            prefix = prefix.strip().rstrip('/')
+            if not prefix or '/opt/ros/' in prefix:
+                continue
+            for candidate in ['/'.join(prefix.split('/')[:-1]), prefix]:
+                if candidate and candidate not in dir_seen:
+                    dir_seen.add(candidate)
+                    install_dirs.append(candidate)
+        _check_paths([f"{d}/setup.bash" for d in install_dirs])
+
+        # Pass 2: brute-force check common workspace locations
+        common = [
+            "/ros2_ws/install/setup.bash",
+            "/workspace/install/setup.bash",
+            "/home/ros/ros2_ws/install/setup.bash",
+            "/home/user/ros2_ws/install/setup.bash",
+            "/root/ros2_ws/install/setup.bash",
+            "/opt/workspace/install/setup.bash",
+            "/colcon_ws/install/setup.bash",
+        ]
+        _check_paths([p for p in common if p not in seen])
+
+        # Pass 3: shallow find under likely roots (fast — maxdepth 5)
+        if not found:
+            out, _ = self._run_raw(
+                f"docker exec {self._container_id} "
+                f"find /ros2_ws /workspace /home /root /opt/ros_ws "
+                f"-maxdepth 5 -name setup.bash -path '*/install/*' 2>/dev/null | head -8",
+                timeout=8,
+            )
+            for line in out.splitlines():
+                p = line.strip()
+                if p and p not in seen and '/opt/ros/' not in p:
+                    seen.add(p)
+                    found.append(p)
+
+        return found
+
     def _detect_middleware(self) -> None:
         out, _ = self._run_raw(
             f"docker exec {self._container_id} bash -c 'echo $RMW_IMPLEMENTATION' 2>/dev/null",
@@ -197,16 +286,31 @@ class ROSConnector:
     def _run_raw(self, cmd: str, timeout: int = 10) -> Tuple[str, str]:
         """Run a raw shell command over SSH (no container)."""
         with self._lock:
-            stdin, stdout, stderr = self._client.exec_command(cmd, timeout=timeout)
-            out = stdout.read().decode("utf-8", errors="replace")
-            err = stderr.read().decode("utf-8", errors="replace")
-            return out, err
+            if self._client is None:
+                try:
+                    self._client = self._new_client()
+                    self.connected = True
+                except Exception as exc:
+                    return "", f"SSH disconnected: {exc}"
+            try:
+                stdin, stdout, stderr = self._client.exec_command(cmd, timeout=timeout)
+                out = stdout.read().decode("utf-8", errors="replace")
+                err = stderr.read().decode("utf-8", errors="replace")
+                return out, err
+            except Exception as exc:
+                self._client = None
+                self.connected = False
+                return "", f"SSH error: {exc}"
 
     def _container_script(self, cmd: str) -> str:
-        """Build a bash script that sources ROS2 then runs cmd."""
+        """Build a bash script that sources ROS2 (base + workspace overlays) then runs cmd."""
         lines = []
         if self.ros_setup:
             lines.append(f"source {self.ros_setup} 2>/dev/null")
+        for overlay in self.ros_overlays:
+            lines.append(f"source {overlay} 2>/dev/null")
+        # Suppress zenoh/Rust INFO+WARN messages that rmw_zenoh_cpp writes to stdout
+        lines.append("export RUST_LOG=error")
         lines.append(cmd)
         return "\n".join(lines) + "\n"
 
@@ -214,14 +318,25 @@ class ROSConnector:
         """Run a ROS2 command inside the active container via stdin."""
         script = self._container_script(cmd)
         with self._lock:
-            stdin, stdout, stderr = self._client.exec_command(
-                f"docker exec -i {self._container_id} bash --norc --noprofile",
-                timeout=timeout,
-            )
-            stdin.write(script.encode())
-            stdin.channel.shutdown_write()
-            out = stdout.read().decode("utf-8", errors="replace")
-            err = stderr.read().decode("utf-8", errors="replace")
+            if self._client is None:
+                try:
+                    self._client = self._new_client()
+                    self.connected = True
+                except Exception as exc:
+                    return "", f"SSH disconnected — reconnect failed: {exc}"
+            try:
+                stdin, stdout, stderr = self._client.exec_command(
+                    f"docker exec -i {self._container_id} bash --norc --noprofile",
+                    timeout=timeout,
+                )
+                stdin.write(script.encode())
+                stdin.channel.shutdown_write()
+                out = stdout.read().decode("utf-8", errors="replace")
+                err = stderr.read().decode("utf-8", errors="replace")
+            except Exception as exc:
+                self._client = None
+                self.connected = False
+                return "", f"SSH error (connection dropped): {exc}"
         return out, err
 
     def _new_client(self) -> paramiko.SSHClient:
@@ -274,18 +389,20 @@ class ROSConnector:
 
     def echo_topic_once(self, topic: str) -> str:
         out, err = self._run(
-            f"timeout 8 ros2 topic echo --once {shlex.quote(topic)} 2>&1", timeout=12
+            f"timeout 8 ros2 topic echo --once {shlex.quote(topic)}", timeout=12
         )
-        return out or err or "(no data)"
+        raw = out or err or "(no data)"
+        lines = [l for l in _strip_ansi(raw).splitlines() if not _is_zenoh_log(l)]
+        return "\n".join(lines).strip() or "(no data)"
 
     def publish_topic(self, topic: str, msg_type: str, data: str) -> dict:
-        # shlex.quote handles all special characters safely
+        # --times 1 avoids the rclpy !rclpy.ok() cleanup race in --once
         cmd = (
-            f"ros2 topic pub --once {shlex.quote(topic)} "
+            f"ros2 topic pub --times 1 {shlex.quote(topic)} "
             f"{shlex.quote(msg_type)} {shlex.quote(data)}"
         )
         out, err = self._run(cmd, timeout=15)
-        return {"output": out, "error": err}
+        return {"output": _clean_cmd(out), "error": _clean_cmd(err)}
 
     # ── Service operations ────────────────────────────────────────────
 
@@ -301,16 +418,17 @@ class ROSConnector:
             f"{shlex.quote(srv_type)} {shlex.quote(data)}"
         )
         out, err = self._run(cmd, timeout=20)
-        return {"output": out, "error": err}
+        return {"output": _clean_cmd(out), "error": _clean_cmd(err)}
 
     # ── Action operations ─────────────────────────────────────────────
 
     def get_action_info(self, action: str) -> dict:
+        # -t flag makes ros2 print types in brackets: /node [pkg/action/Type]
         out, _ = self._run(
-            f"ros2 action info {shlex.quote(action)} 2>/dev/null", timeout=10
+            f"ros2 action info -t {shlex.quote(action)} 2>/dev/null", timeout=10
         )
         info: dict = {"type": None, "raw": out}
-        m = re.search(r"Action:\s+(\S+)", out)
+        m = re.search(r"\[(\S+/action/\S+)\]", out)
         if m:
             info["type"] = m.group(1)
         return info
@@ -321,7 +439,7 @@ class ROSConnector:
             f"{shlex.quote(action_type)} {shlex.quote(goal)}"
         )
         out, err = self._run(cmd, timeout=30)
-        return {"output": out, "error": err}
+        return {"output": _clean_cmd(out), "error": _clean_cmd(err)}
 
     # ── Interface introspection ───────────────────────────────────────
 
@@ -348,7 +466,11 @@ class ROSConnector:
             yield f"data: {json.dumps({'error': f'SSH failed: {exc}'})}\n\n"
             return
 
-        script = self._container_script(f"ros2 topic echo {shlex.quote(topic)}")
+        # PYTHONUNBUFFERED=1 forces ros2 topic echo (a Python process) to flush
+        # each message immediately instead of accumulating in a block buffer
+        script = self._container_script(
+            f"PYTHONUNBUFFERED=1 ros2 topic echo {shlex.quote(topic)}"
+        )
         channel = None
         try:
             stdin, stdout, _ = client.exec_command(
@@ -361,21 +483,22 @@ class ROSConnector:
             buffer_lines: List[str] = []
 
             while True:
-                ready, _, _ = select.select([channel], [], [], 1.0)
-                if ready:
+                if channel.recv_ready():
                     chunk = channel.recv(4096)
                     if not chunk:
                         break
-                    for raw_line in chunk.decode("utf-8", errors="replace").splitlines():
+                    for raw_line in _strip_ansi(chunk.decode("utf-8", errors="replace")).splitlines():
                         line = raw_line.rstrip()
                         if line == "---":
                             if buffer_lines:
                                 yield f"data: {json.dumps({'message': chr(10).join(buffer_lines), 'topic': topic})}\n\n"
                                 buffer_lines = []
-                        else:
+                        elif not _is_zenoh_log(line):
                             buffer_lines.append(line)
                 elif channel.exit_status_ready():
                     break
+                else:
+                    time.sleep(0.05)
         except GeneratorExit:
             pass
         except Exception as exc:
