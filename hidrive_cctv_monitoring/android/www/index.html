@@ -401,23 +401,69 @@
     }
     .btn-undo:active { border-color: var(--accent); color: var(--accent); }
 
-    /* ── Event log ───────────────────────────────────────────────────── */
-    .event-log {
-      height: 84px; overflow-y: auto; flex-shrink: 0;
-      background: var(--bg-log); border-top: 1px solid var(--border);
+    /* ── Comment bar ─────────────────────────────────────────────────── */
+    .comment-bar {
+      display: flex; align-items: center; gap: 0.5rem;
+      padding: 0 0.75rem; height: 44px;
+      background: var(--bg-controls); border-top: 1px solid var(--border);
+      flex-shrink: 0;
     }
-    .event-log table { width: 100%; border-collapse: collapse; font-size: 0.72rem; }
-    .event-log thead th {
-      padding: 0.25rem 0.65rem; text-align: left;
-      font-family: 'Poppins', sans-serif; font-size: 0.58rem; font-weight: 700;
+    .comment-bar label {
+      font-family: 'Poppins', sans-serif; font-size: 0.68rem; font-weight: 700;
       color: var(--text-3); text-transform: uppercase; letter-spacing: 0.07em;
-      position: sticky; top: 0; background: var(--bg-log); border-bottom: 1px solid var(--border);
+      white-space: nowrap; flex-shrink: 0;
     }
-    .event-log tbody td { padding: 0.22rem 0.65rem; color: var(--text-2); border-bottom: 1px solid rgba(38,38,58,0.5); }
-    .s-good   { color: #4ade80; font-weight: 700; }
-    .s-bad    { color: #f87171; font-weight: 700; }
-    .s-issue  { color: #fbbf24; font-weight: 700; }
-    .s-reject { color: #a78bfa; font-weight: 700; }
+    .comment-bar input {
+      flex: 1; padding: 0.4rem 0.7rem;
+      background: var(--bg-base); border: 1.5px solid var(--border);
+      border-radius: var(--radius); color: var(--text-1);
+      font-family: 'Albert Sans', sans-serif; font-size: 0.88rem; outline: none;
+    }
+    .comment-bar input:focus { border-color: var(--accent); }
+
+    /* ── Log overlay ─────────────────────────────────────────────────── */
+    .log-overlay {
+      position: fixed; inset: 0; z-index: 90;
+      background: var(--bg-base);
+      display: flex; flex-direction: column;
+      transform: translateY(100%);
+      transition: transform 0.28s ease;
+    }
+    .log-overlay.open { transform: translateY(0); }
+    .log-overlay-header {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 0.75rem 1rem;
+      border-bottom: 1px solid var(--border);
+      background: var(--bg-surface); flex-shrink: 0;
+    }
+    .log-overlay-header span {
+      font-family: 'Poppins', sans-serif; font-size: 0.88rem; font-weight: 700;
+      color: var(--text-1);
+    }
+    .btn-log-close {
+      background: transparent; border: none; color: var(--text-3);
+      font-size: 1.1rem; cursor: pointer; padding: 0.25rem;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .log-table-wrap { flex: 1; overflow-y: auto; }
+    .log-table { width: 100%; border-collapse: collapse; font-size: 0.8rem; }
+    .log-table thead th {
+      padding: 0.4rem 0.75rem; text-align: left;
+      font-family: 'Poppins', sans-serif; font-size: 0.62rem; font-weight: 700;
+      color: var(--text-3); text-transform: uppercase; letter-spacing: 0.07em;
+      position: sticky; top: 0; background: var(--bg-surface); border-bottom: 1px solid var(--border);
+    }
+    .log-table tbody td {
+      padding: 0.35rem 0.75rem; color: var(--text-2);
+      border-bottom: 1px solid var(--border);
+      font-family: 'Albert Sans', sans-serif;
+    }
+    .log-table tbody tr:active td { background: var(--bg-surface); }
+    .s-good    { color: #4ade80; font-weight: 700; }
+    .s-bad     { color: #f87171; font-weight: 700; }
+    .s-issue   { color: #fbbf24; font-weight: 700; }
+    .s-reject  { color: #a78bfa; font-weight: 700; }
+    .s-comment { color: #60a5fa; font-weight: 700; }
 
     /* ── Scrollbar ───────────────────────────────────────────────────── */
     ::-webkit-scrollbar { width: 4px; }
@@ -534,6 +580,8 @@
     <div class="csv-menu-wrap">
       <button class="btn-csv" onclick="toggleCsvMenu()">CSV ▾</button>
       <div class="csv-dropdown" id="csv-dropdown">
+        <button onclick="showLogOverlay(); closeCsvMenu()">View Log</button>
+        <div class="csv-divider"></div>
         <button onclick="downloadCSV(); closeCsvMenu()">Share CSV</button>
         <div class="csv-divider"></div>
         <button class="csv-danger" onclick="promptNewSession(); closeCsvMenu()">New session</button>
@@ -585,6 +633,12 @@
     <input id="product-input" type="text" value="mixed leaf" placeholder="Product name">
   </div>
 
+  <!-- Comment -->
+  <div class="comment-bar">
+    <label for="comment-input">Comment</label>
+    <input id="comment-input" type="text" placeholder="Type note, press Enter to log timestamp">
+  </div>
+
   <!-- Action buttons -->
   <div class="action-grid">
     <button class="log-btn btn-good"   id="btn-good"   onclick="logEvent('Good')">Good<span class="btn-badge" id="badge-good"></span></button>
@@ -596,12 +650,18 @@
     <button class="btn-undo" id="btn-undo" onclick="undoEvent()">↩ Undo</button>
   </div>
 
-  <!-- Recent log -->
-  <div class="event-log">
-    <table>
-      <thead><tr><th>Time</th><th>Status</th><th>Product</th><th>Unit</th></tr></thead>
-      <tbody id="log-tbody"></tbody>
-    </table>
+  <!-- Log overlay (full-screen, triggered from CSV ▾ → View Log) -->
+  <div class="log-overlay" id="log-overlay">
+    <div class="log-overlay-header">
+      <span id="log-overlay-title">Log</span>
+      <button class="btn-log-close" onclick="hideLogOverlay()">✕</button>
+    </div>
+    <div class="log-table-wrap">
+      <table class="log-table">
+        <thead><tr><th>Time</th><th>Status</th><th>Product</th><th>Comment</th></tr></thead>
+        <tbody id="log-tbody"></tbody>
+      </table>
+    </div>
   </div>
 
 </div>
@@ -752,6 +812,15 @@ async function startSession() {
 
 document.getElementById('operator-input').addEventListener('keydown', e => {
   if (e.key === 'Enter') startSession();
+});
+
+document.getElementById('comment-input').addEventListener('keydown', e => {
+  if (e.key !== 'Enter') return;
+  e.preventDefault();
+  const comment = document.getElementById('comment-input').value.trim();
+  if (!comment || currentIdx < 0) return;
+  logComment(comment);
+  document.getElementById('comment-input').value = '';
 });
 
 window.addEventListener('DOMContentLoaded', () => {
@@ -930,16 +999,21 @@ function updateSidebarActive(idx) {
 }
 
 // ── Logging ────────────────────────────────────────────────────────────────
+function _currentTs() {
+  const video = unitVideos[currentIdx];
+  const start = new Date(video.start_iso);
+  return new Date(start.getTime() + activePlayer().currentTime * 1000);
+}
+
 function logEvent(status) {
   if (currentIdx < 0) return;
-  const video   = unitVideos[currentIdx];
-  const start   = new Date(video.start_iso);
-  const ts      = new Date(start.getTime() + activePlayer().currentTime * 1000);
+  const ts      = _currentTs();
   const product = document.getElementById('product-input').value.trim();
   const ppx     = (currentUnit.match(/\d+/) || [currentUnit])[0];
 
   const row = {
     ppx, product, status,
+    comment: '',
     unit: currentUnit,
     time: fmtTs(ts),
     date: `${ts.getMonth()+1}/${ts.getDate()}/${ts.getFullYear()}`,
@@ -958,6 +1032,31 @@ function logEvent(status) {
   flashBtn(status);
 }
 
+function logComment(comment) {
+  if (currentIdx < 0) return;
+  const ts      = _currentTs();
+  const product = document.getElementById('product-input').value.trim();
+  const ppx     = (currentUnit.match(/\d+/) || [currentUnit])[0];
+
+  const row = {
+    ppx, product,
+    status: 'Comment',
+    comment,
+    unit: currentUnit,
+    time: fmtTs(ts),
+    date: `${ts.getMonth()+1}/${ts.getDate()}/${ts.getFullYear()}`,
+    hhmm: `${ts.getHours()}:${ts.getMinutes().toString().padStart(2,'0')}:${ts.getSeconds().toString().padStart(2,'0')}`,
+    operator,
+  };
+
+  logRows.unshift(row);
+  eventCount++;
+  localStorage.setItem(`cctv_log_${operator}`, JSON.stringify(logRows));
+  saveLogToFile();
+  vibrate(15);
+  renderLog();
+}
+
 function undoEvent() {
   if (logRows.length === 0) return;
   const removed = logRows.shift();
@@ -971,15 +1070,26 @@ function undoEvent() {
 }
 
 function renderLog() {
-  document.getElementById('log-tbody').innerHTML = logRows.slice(0, 80).map(r => `
+  document.getElementById('log-tbody').innerHTML = logRows.slice(0, 200).map(r => `
     <tr>
       <td>${r.time}</td>
       <td class="s-${r.status.toLowerCase()}">${r.status}</td>
       <td>${escHtml(r.product)}</td>
-      <td>${r.unit}</td>
+      <td>${escHtml(r.comment || '')}</td>
     </tr>`).join('');
-  document.getElementById('event-count-header').textContent =
-    `${eventCount} event${eventCount !== 1 ? 's' : ''}`;
+  const label = `${eventCount} event${eventCount !== 1 ? 's' : ''}`;
+  document.getElementById('event-count-header').textContent = label;
+  const title = document.getElementById('log-overlay-title');
+  if (title) title.textContent = label;
+}
+
+function showLogOverlay() {
+  renderLog();
+  document.getElementById('log-overlay').classList.add('open');
+}
+
+function hideLogOverlay() {
+  document.getElementById('log-overlay').classList.remove('open');
 }
 
 function flashBtn(status) {
@@ -1059,9 +1169,9 @@ function setSpeed(rate) {
 
 // ── CSV file persistence ────────────────────────────────────────────────────
 function logRowsToCsv(rows) {
-  const header = 'PPX,Date,Time,Index,Status,Product,Operator\n';
+  const header = 'PPX,Date,Time,Index,Status,Product,Operator,Comment\n';
   const body = [...rows].reverse().map(r =>
-    [r.ppx, r.date, r.hhmm, '', r.status, r.product, r.operator]
+    [r.ppx, r.date, r.hhmm, '', r.status, r.product, r.operator, r.comment || '']
       .map(v => `"${(v||'').replace(/"/g,'""')}"`)
       .join(',')
   ).join('\n');
@@ -1086,8 +1196,8 @@ function parseCsvLine(line) {
 function csvToLogRows(csv) {
   const lines = csv.trim().split('\n').slice(1).filter(Boolean);
   return lines.reverse().map(line => {
-    const [ppx, date, hhmm, , status, product, op] = parseCsvLine(line);
-    return { ppx, date, hhmm, status, product, operator: op, unit: ppx, time: `${date}  ${hhmm}` };
+    const [ppx, date, hhmm, , status, product, op, comment] = parseCsvLine(line);
+    return { ppx, date, hhmm, status, product, operator: op, comment: comment || '', unit: ppx, time: `${date}  ${hhmm}` };
   });
 }
 

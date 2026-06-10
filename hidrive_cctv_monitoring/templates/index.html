@@ -434,12 +434,14 @@
 
     /* ── Event log ───────────────────────────────────────────────── */
     .event-log {
-      height: 138px; overflow-y: auto;
+      overflow-y: auto;
       background: var(--bg-log);
       border-top: 1px solid var(--border);
       flex-shrink: 0;
-      transition: background var(--transition);
+      max-height: 280px;
+      transition: background var(--transition), max-height 0.25s ease;
     }
+    .event-log.collapsed { max-height: 0; border-top: none; overflow: hidden; }
     .event-log table { width: 100%; border-collapse: collapse; font-size: 0.75rem; }
     .event-log thead th {
       padding: 0.3rem 0.75rem;
@@ -459,14 +461,44 @@
       font-family: 'Albert Sans', sans-serif;
     }
     .event-log tbody tr:hover td { background: var(--bg-surface); }
-    .s-good   { color: #16a34a; font-weight: 700; }
-    .s-bad    { color: #dc2626; font-weight: 700; }
-    .s-issue  { color: #d97706; font-weight: 700; }
-    .s-reject { color: #7c3aed; font-weight: 700; }
-    [data-theme="dark"] .s-good   { color: #4ade80; }
-    [data-theme="dark"] .s-bad    { color: #f87171; }
-    [data-theme="dark"] .s-issue  { color: #fbbf24; }
-    [data-theme="dark"] .s-reject { color: #a78bfa; }
+    .s-good    { color: #16a34a; font-weight: 700; }
+    .s-bad     { color: #dc2626; font-weight: 700; }
+    .s-issue   { color: #d97706; font-weight: 700; }
+    .s-reject  { color: #7c3aed; font-weight: 700; }
+    .s-comment { color: #2563eb; font-weight: 700; }
+    [data-theme="dark"] .s-good    { color: #4ade80; }
+    [data-theme="dark"] .s-bad     { color: #f87171; }
+    [data-theme="dark"] .s-issue   { color: #fbbf24; }
+    [data-theme="dark"] .s-reject  { color: #a78bfa; }
+    [data-theme="dark"] .s-comment { color: #60a5fa; }
+
+    /* ── Comment input ───────────────────────────────────────────────── */
+    .comment-wrap {
+      display: flex; align-items: center; gap: 0.5rem;
+      font-size: 0.78rem; color: var(--text-3);
+      font-family: 'Poppins', sans-serif; font-weight: 600;
+    }
+    .comment-wrap input {
+      padding: 0.38rem 0.7rem;
+      background: var(--bg-base);
+      border: 1.5px solid var(--border);
+      border-radius: var(--radius);
+      color: var(--text-1);
+      font-family: 'Albert Sans', sans-serif;
+      font-size: 0.82rem; width: 240px; outline: none;
+      transition: border-color var(--transition), background var(--transition);
+    }
+    .comment-wrap input:focus { border-color: var(--accent); }
+
+    .btn-log-toggle {
+      padding: 0.3rem 0.75rem;
+      background: transparent; color: var(--text-3);
+      border: 1.5px solid var(--border); border-radius: var(--radius);
+      font-family: 'Poppins', sans-serif;
+      font-size: 0.75rem; font-weight: 700; cursor: pointer;
+      transition: border-color var(--transition), color var(--transition);
+    }
+    .btn-log-toggle:hover { border-color: var(--accent); color: var(--accent); }
 
     /* ── Scrollbar ───────────────────────────────────────────────── */
     ::-webkit-scrollbar { width: 5px; }
@@ -524,7 +556,7 @@
     <span class="h-sep">|</span>
     <span id="header-time">—</span>
     <span class="spacer"></span>
-    <span id="event-count-header">0 events</span>
+    <button class="btn-log-toggle" id="btn-log-toggle" onclick="toggleLog()">Log ▾</button>
     <button class="btn-download" onclick="downloadCSV()">Download CSV</button>
     <button class="btn-theme" id="theme-toggle" onclick="toggleTheme()" title="Toggle light/dark mode">☀</button>
   </header>
@@ -569,6 +601,10 @@
           <span>Product</span>
           <input id="product-input" type="text" value="mixed leaf" placeholder="Product name">
         </div>
+        <div class="comment-wrap">
+          <span>Comment</span>
+          <input id="comment-input" type="text" placeholder="Type note, press Enter to log">
+        </div>
         <div class="action-btns">
           <button class="btn-good"  id="btn-good"  onclick="logEvent('Good')">
             Good <span class="key">[G]</span><span class="btn-badge" id="badge-good"></span>
@@ -602,11 +638,11 @@
         </div>
       </div>
 
-      <div class="event-log">
+      <div class="event-log collapsed" id="event-log">
         <table>
           <thead>
             <tr>
-              <th>Real time</th><th>Status</th><th>Product</th><th>Unit</th>
+              <th>Real time</th><th>Status</th><th>Product</th><th>Unit</th><th>Comment</th>
             </tr>
           </thead>
           <tbody id="log-tbody"></tbody>
@@ -827,6 +863,15 @@ document.getElementById('operator-input').addEventListener('keydown', e => {
   if (e.key === 'Enter') startSession();
 });
 
+document.getElementById('comment-input').addEventListener('keydown', e => {
+  if (e.key !== 'Enter') return;
+  e.preventDefault();
+  const comment = document.getElementById('comment-input').value.trim();
+  if (!comment || currentIdx < 0) return;
+  logComment(comment);
+  document.getElementById('comment-input').value = '';
+});
+
 async function activateApp() {
   document.getElementById('setup-modal').style.display = 'none';
   document.getElementById('app').style.display         = 'flex';
@@ -965,38 +1010,73 @@ function updateSidebarActive(idx) {
 }
 
 // ── Logging ────────────────────────────────────────────────────────────────
+function _currentTs() {
+  const video = unitVideos[currentIdx];
+  const start = new Date(video.start_iso);
+  return new Date(start.getTime() + activePlayer().currentTime * 1000);
+}
+
 async function logEvent(status) {
   if (currentIdx < 0) return;
 
-  const video   = unitVideos[currentIdx];
-  const start   = new Date(video.start_iso);
-  const ts      = new Date(start.getTime() + activePlayer().currentTime * 1000);
+  const ts      = _currentTs();
   const product = document.getElementById('product-input').value.trim();
 
   fetch('/api/log', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ session_id: sessionId, unit: currentUnit, timestamp: ts.toISOString(), status, product }),
+    body: JSON.stringify({ session_id: sessionId, unit: currentUnit, timestamp: ts.toISOString(), status, product, comment: '' }),
   });
 
   eventCount++;
   sessionCounts[status] = (sessionCounts[status] || 0) + 1;
-  logRows.unshift({ time: fmtTs(ts), status, product, unit: currentUnit });
+  logRows.unshift({ time: fmtTs(ts), status, product, comment: '', unit: currentUnit });
   renderLog();
   renderBadges();
   flashBtn(status);
 }
 
+async function logComment(comment) {
+  if (currentIdx < 0) return;
+
+  const ts      = _currentTs();
+  const product = document.getElementById('product-input').value.trim();
+
+  fetch('/api/log', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ session_id: sessionId, unit: currentUnit, timestamp: ts.toISOString(), status: 'Comment', product, comment }),
+  });
+
+  eventCount++;
+  logRows.unshift({ time: fmtTs(ts), status: 'Comment', product, comment, unit: currentUnit });
+  renderLog();
+}
+
 function renderLog() {
-  document.getElementById('log-tbody').innerHTML = logRows.slice(0, 80).map(r => `
+  document.getElementById('log-tbody').innerHTML = logRows.slice(0, 200).map(r => `
     <tr>
       <td>${r.time}</td>
       <td class="s-${r.status.toLowerCase()}">${r.status}</td>
       <td>${escHtml(r.product)}</td>
-      <td>${r.unit}</td>
+      <td>${escHtml(r.unit)}</td>
+      <td>${escHtml(r.comment || '')}</td>
     </tr>`).join('');
-  document.getElementById('event-count-header').textContent =
-    `${eventCount} event${eventCount !== 1 ? 's' : ''}`;
+  const label = `${eventCount} event${eventCount !== 1 ? 's' : ''}`;
+  const countEl = document.getElementById('event-count-header');
+  if (countEl) countEl.textContent = label;
+  const btn = document.getElementById('btn-log-toggle');
+  if (btn) {
+    const collapsed = document.getElementById('event-log').classList.contains('collapsed');
+    btn.textContent = collapsed ? `Log (${eventCount}) ▾` : `Log (${eventCount}) ▴`;
+  }
+}
+
+function toggleLog() {
+  const log = document.getElementById('event-log');
+  const btn = document.getElementById('btn-log-toggle');
+  const collapsed = log.classList.toggle('collapsed');
+  btn.textContent = collapsed ? `Log (${eventCount}) ▾` : `Log (${eventCount}) ▴`;
 }
 
 function flashBtn(status) {

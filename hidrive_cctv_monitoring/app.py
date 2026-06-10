@@ -357,7 +357,7 @@ def create_session():
 
     if not log_path.exists() or log_path.stat().st_size == 0:
         with open(log_path, "w", newline="") as f:
-            csv.writer(f).writerow(["PPX", "Date", "Time", "Index", "Status", "Product", "Operator"])
+            csv.writer(f).writerow(["PPX", "Date", "Time", "Index", "Status", "Product", "Operator", "Comment"])
 
     _sessions[session_id] = {"operator": operator, "log_path": str(log_path), "source": source}
     _save_sessions()
@@ -396,6 +396,7 @@ def log_event():
             data.get("status", ""),
             data.get("product", ""),
             sess["operator"],
+            data.get("comment", ""),
         ])
 
     return jsonify({"ok": True})
