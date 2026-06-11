@@ -143,6 +143,75 @@ Root may be required on some systems — `psutil.net_connections()` looks at the
 
 ---
 
+### [`gravity/`](gravity/) — GRAVITY
+
+An N-body orbital simulator. Bodies attract, orbit, fling each other across the canvas, and leave fading trails like cosmic exhaust. Four presets: Chaos (twelve bodies hurled into roughly circular orbits and left to get on with it), Binary (two equal-mass stars orbiting each other while test particles cling on for dear life), Solar (one large central star, five planets, the usual arrangement), and Figure-8 (the Chenciner-Montgomery choreographic three-body solution, which is either beautiful mathematics or showing off, and I cannot decide which).
+
+The gravitational constant is scaled for terminal aesthetics rather than physical accuracy. I considered apologising for this. I decided against it.
+
+> *"What is the airspeed velocity of an unladen body in a two-body system?" "African or European bodies?" "What?" "Aaaaarrgh."*
+
+**Run with:**
+```bash
+cd gravity
+pip install -r requirements.txt
+python3 gravity.py
+```
+
+---
+
+### [`sandpit/`](sandpit/) — SANDPIT
+
+A falling sand cellular automaton. Move a cursor around the canvas with arrow keys, select a material (sand, water, fire, stone, steam), press space to place it, and watch the physics unfold. Sand falls and piles. Water flows and fills. Fire rises, spreads to adjacent sand, and burns out into steam. Steam drifts upward and vanishes. Stone sits there, immovably, like a knight who has had quite enough of this sort of thing.
+
+The simulation runs at twenty frames per second, which is either fast enough to be satisfying or slow enough to be meditative, depending entirely on how much coffee you've had. Physics are updated bottom-to-top to avoid directional bias, which I mention because someone, somewhere, will wonder.
+
+> *"She turned me into SAND." "...A sand?" "I got better."*
+
+**Run with:**
+```bash
+cd sandpit
+pip install -r requirements.txt
+python3 sandpit.py
+# Arrow keys: move cursor | 1-5: select material | Space: place | C: clear
+```
+
+---
+
+### [`sortrace/`](sortrace/) — SORTRACE
+
+Six sorting algorithms racing simultaneously on the same shuffled array. Bubble, Insertion, Selection, Merge, Quick, and Heap sort — all competing, all visualised as animated bar charts in the terminal, all secretly judging each other. The first to finish is declared the winner, which is the closest this codebase will ever get to competitive sport.
+
+Speed is adjustable: 1×, 5×, or 20× steps per tick. At 20× the slower algorithms blur past in a cascade of comparisons. At 1× you can watch bubble sort laboriously swapping adjacent elements and contemplate the nature of O(n²) complexity, which I find both instructive and depressing in equal measure.
+
+> *"We have found a sort. May we burn it?" "How do you know it is a sort?" "It sorted me." "...Did it?" "A bit."*
+
+**Run with:**
+```bash
+cd sortrace
+pip install -r requirements.txt
+python3 sortrace.py
+```
+
+---
+
+### [`swarm/`](swarm/) — SWARM
+
+A Boids flocking simulation. Sixty autonomous agents follow three rules — separation (don't crowd your neighbours), alignment (match their heading), cohesion (drift toward their centre of mass) — and from these three rules, emergent flocking behaviour appears as if from nowhere, which is either emergent complexity or witchcraft and I have not ruled out the latter.
+
+Adjust separation, alignment, and cohesion weights live using +/− buttons. Increase cohesion and they clump. Increase separation and they scatter. Find the right balance and they wheel and turn in tight formations across the screen like a murmuration of very small Unicode arrows that have somewhere important to be.
+
+> *"We are the Boids who say Ni! And also: maintain minimum separation distance. These things are not unrelated."*
+
+**Run with:**
+```bash
+cd swarm
+pip install -r requirements.txt
+python3 swarm.py
+```
+
+---
+
 ## General Notes
 
 - Everything here requires Python 3.10+ because I refuse to write `Union[X, Y]` when `X | Y` exists.
