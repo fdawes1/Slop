@@ -1,0 +1,44 @@
+channel:
+  name: "AI Insights Daily"
+  niche: "artificial intelligence and future technology"
+  target_audience: "tech enthusiasts, developers, and curious minds aged 18-45"
+  tone: "informative, engaging, slightly conversational — like a knowledgeable friend explaining"
+  upload_schedule:
+    frequency: "daily"
+    time: "14:00"
+    timezone: "America/New_York"
+  content_pillars:
+    - "AI tool breakdowns and tutorials"
+    - "Future tech predictions and analysis"
+    - "AI news and industry developments"
+    - "Practical AI use cases for everyday life"
+    - "Behind the scenes of how AI models work"
+  video_format:
+    target_duration: 600         # seconds — 10 min is sweet spot for mid-roll ads
+    min_duration: 300
+    max_duration: 900
+    style: "educational_slideshow"  # educational_slideshow | documentary | talking_head
+    sections_count: 5
+    include_intro: true
+    include_outro: true
+  branding:
+    primary_color: "#6C63FF"
+    secondary_color: "#FF6584"
+    accent_color: "#43E8D8"
+    font: "DejaVu-Sans-Bold"
+    thumbnail_style: "bold_text_with_image"
+    channel_watermark: "AI Insights Daily"
+  seo:
+    competitor_channels:
+      - "Two Minute Papers"
+      - "AI Explained"
+      - "Fireship"
+      - "Lex Fridman"
+    seed_keywords:
+      - "artificial intelligence"
+      - "machine learning"
+      - "ChatGPT"
+      - "AI tools 2024"
+      - "future of AI"
+      - "large language models"
+      - "AI automation"

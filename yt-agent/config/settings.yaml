@@ -1,0 +1,49 @@
+models:
+  script_writer: "claude-sonnet-4-6"
+  seo_optimizer: "claude-haiku-4-5-20251001"
+  strategy: "claude-sonnet-4-6"
+  image_generator: "dall-e-3"       # dall-e-3 | stability
+  image_size: "1792x1024"           # 16:9 widescreen
+  image_quality: "standard"         # standard | hd (hd = 2x cost)
+
+tts:
+  provider: "edge-tts"              # edge-tts (free) | elevenlabs | openai
+  voice: "en-US-AndrewNeural"       # edge-tts voice — run `edge-tts --list-voices` for options
+  speed: "+5%"                      # slightly faster than default
+  pitch: "+0Hz"
+
+video:
+  fps: 30
+  resolution: [1920, 1080]
+  codec: "libx264"
+  audio_codec: "aac"
+  transition_duration: 0.5
+  ken_burns_scale: 1.08             # subtle zoom amount for static images
+  subtitle_font_size: 42
+  subtitle_position: "bottom"
+  background_music_volume: 0.06    # very subtle under voiceover
+  output_format: "mp4"
+  threads: 4
+
+thumbnail:
+  width: 1280
+  height: 720
+  text_max_chars: 38
+  gradient_opacity: 0.65
+
+upload:
+  default_privacy: "public"
+  default_category: "28"            # 28 = Science & Technology
+  notify_subscribers: true
+  auto_schedule: false
+  schedule_hour: 14                 # 2pm ET
+
+analytics:
+  fetch_interval_hours: 24
+  min_views_for_analysis: 500
+  performance_window_days: 30
+
+paths:
+  output: "output"
+  data: "data"
+  logs: "logs"
