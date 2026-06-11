@@ -1309,33 +1309,32 @@ async function fetchLatestRelease() {
 
 async function checkForUpdates(silent) {
   if (!window.GH_TOKEN) {
-    if (!silent) alert(‘Update check unavailable: local/dev build.’);
+    if (!silent) alert('Update check unavailable: local/dev build.');
     return;
   }
   try {
     const release = await fetchLatestRelease();
-    const match = (release.name || ‘’).match(/(\d+)$/);
+    const match = (release.name || '').match(/(\d+)$/);
     const latestBuild = match ? parseInt(match[1]) : 0;
     if (latestBuild > window.BUILD_NUMBER) {
-      const asset = release.assets.find(a => a.name.endsWith(‘.apk’));
-      if (!asset) { if (!silent) alert(‘Release found but no APK attached.’); return; }
-      // Use browser_download_url — avoids Authorization header colliding with S3 pre-signed redirect
-      pendingUpdateUrl = asset.browser_download_url;
-      document.getElementById(‘update-msg’).textContent =
-        `Update available — Build #${latestBuild} (you have #${window.BUILD_NUMBER || ‘dev’})`;
-      document.getElementById(‘update-banner’).classList.add(‘show’);
+      const asset = release.assets.find(a => a.name.endsWith('.apk'));
+      if (!asset) { if (!silent) alert('Release found but no APK attached.'); return; }
+      pendingUpdateUrl = asset.url;
+      document.getElementById('update-msg').textContent =
+        `Update available — Build #${latestBuild} (you have #${window.BUILD_NUMBER})`;
+      document.getElementById('update-banner').classList.add('show');
     } else if (!silent) {
       alert(`You’re on the latest build (#${window.BUILD_NUMBER}).`);
     }
   } catch (e) {
-    if (!silent) alert(‘Update check failed: ‘ + e.message);
+    if (!silent) alert('Update check failed: ' + e.message);
   }
 }
 
 async function checkForUpdatesManual() {
-  const btn = document.getElementById(‘btn-check-updates’);
+  const btn = document.getElementById('btn-check-updates');
   const prev = btn.textContent;
-  btn.textContent = ‘Checking…’;
+  btn.textContent = 'Checking…';
   btn.disabled = true;
   try {
     await checkForUpdates(false);
@@ -1347,28 +1346,25 @@ async function checkForUpdatesManual() {
 
 async function installUpdate() {
   if (!pendingUpdateUrl) return;
-  const btn = document.getElementById(‘btn-install-update’);
-  btn.textContent = ‘Downloading…’;
+  const btn = document.getElementById('btn-install-update');
+  btn.textContent = 'Downloading…';
   btn.disabled = true;
   try {
     const { AppUpdate } = window.Capacitor.Plugins;
-    // token only needed if repo is private; browser_download_url on public repos needs none
-    await AppUpdate.downloadAndInstall({ url: pendingUpdateUrl, token: window.GH_TOKEN || ‘’ });
-    // Native code launched the OS installer — update is in the user’s hands now
-    btn.textContent = ‘Installing…’;
+    await AppUpdate.downloadAndInstall({ url: pendingUpdateUrl, token: window.GH_TOKEN });
   } catch (e) {
-    alert(‘Install failed: ‘ + e.message);
-    btn.textContent = ‘Install’;
+    alert('Install failed: ' + e.message);
+    btn.textContent = 'Install';
     btn.disabled = false;
   }
 }
 
 function dismissUpdate() {
-  document.getElementById(‘update-banner’).classList.remove(‘show’);
+  document.getElementById('update-banner').classList.remove('show');
 }
 
-// Silent background check 6 s after page load (give the proxy time to start)
-setTimeout(() => checkForUpdates(true), 6000);
+// Silent background check 4 s after page load
+setTimeout(() => checkForUpdates(true), 4000);
 </script>
 </body>
 </html>

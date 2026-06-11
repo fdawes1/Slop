@@ -44,19 +44,7 @@ public class UpdatePlugin extends Plugin {
     }
 
     private File downloadApk(String url, String token) throws IOException {
-        // Strip the Authorization header when redirected to a non-GitHub host (e.g. S3
-        // pre-signed URLs reject requests that also carry a Bearer token).
-        OkHttpClient client = new OkHttpClient.Builder()
-            .addNetworkInterceptor(chain -> {
-                Request req = chain.request();
-                String host = req.url().host();
-                if (!host.endsWith("github.com") && !host.endsWith("githubusercontent.com")) {
-                    req = req.newBuilder().removeHeader("Authorization").build();
-                }
-                return chain.proceed(req);
-            })
-            .build();
-
+        OkHttpClient client = new OkHttpClient();
         Request.Builder req = new Request.Builder()
             .url(url)
             .header("Accept", "application/octet-stream");
@@ -69,7 +57,7 @@ public class UpdatePlugin extends Plugin {
             File apkFile = new File(getContext().getCacheDir(), "update.apk");
             try (InputStream is = resp.body().byteStream();
                  FileOutputStream fos = new FileOutputStream(apkFile)) {
-                byte[] buf = new byte[65536];
+                byte[] buf = new byte[32768];
                 int n;
                 while ((n = is.read(buf)) != -1) fos.write(buf, 0, n);
             }
