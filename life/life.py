@@ -61,11 +61,11 @@ def render_grid(
     draw_mode: bool,
 ) -> Text:
     text = Text(no_wrap=True)
+    cursor_char = "█" if draw_mode else "+"
     for r in range(GRID_H):
         for c in range(GRID_W):
             if r == cursor_r and c == cursor_c:
-                style = "bold bright_green"
-                text.append("+", style=style)
+                text.append(cursor_char, style="bold bright_green")
             elif cells[r][c]:
                 text.append("█", style=age_style(ages[r][c]))
             else:
@@ -399,7 +399,7 @@ class LifeApp(App):
     @on(Button.Pressed, "#btn_clear")
     def on_clear_btn(self) -> None:
         cells = empty_grid()
-        self._load_pattern(cells, empty_grid())
+        self._load_pattern(cells, empty_ages(cells))
 
     @on(Button.Pressed, "#btn_step")
     def on_step_btn(self) -> None:
@@ -439,7 +439,7 @@ class LifeApp(App):
 
     def action_clear_grid(self) -> None:
         cells = empty_grid()
-        self._load_pattern(cells, empty_grid())
+        self._load_pattern(cells, empty_ages(cells))
 
     def action_step_once(self) -> None:
         was_running = self._running

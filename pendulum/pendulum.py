@@ -82,7 +82,6 @@ def energy(state: tuple[float, float, float, float],
     th1, w1, th2, w2 = state
     # positions
     y1 = -L1 * math.cos(th1)
-    x2 = L1 * math.sin(th1) + L2 * math.sin(th2)
     y2 = -L1 * math.cos(th1) - L2 * math.cos(th2)
     # KE
     vx1 = L1 * w1 * math.cos(th1)

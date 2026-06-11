@@ -769,12 +769,28 @@ async function startSession() {
   const hdPass = document.getElementById('hd-pass').value;
   const name   = document.getElementById('operator-input').value.trim();
 
-  if (!hdUser) { document.getElementById('hd-user').focus(); return; }
-  if (!hdPass) { document.getElementById('hd-pass').focus(); return; }
-  if (!name)   { document.getElementById('operator-input').focus(); return; }
-
   const btn = document.getElementById('modal-start-btn');
   const err = document.getElementById('modal-error');
+
+  if (!hdUser) {
+    err.textContent = 'Enter your HiDrive username.';
+    err.style.display = 'block';
+    document.getElementById('hd-user').focus();
+    return;
+  }
+  if (!hdPass) {
+    err.textContent = 'Enter your HiDrive password.';
+    err.style.display = 'block';
+    document.getElementById('hd-pass').focus();
+    return;
+  }
+  if (!name) {
+    err.textContent = 'Enter your name.';
+    err.style.display = 'block';
+    document.getElementById('operator-input').focus();
+    return;
+  }
+
   btn.textContent  = 'Connecting…';
   btn.disabled     = true;
   err.style.display = 'none';
@@ -1017,7 +1033,7 @@ function logEvent(status) {
     unit: currentUnit,
     time: fmtTs(ts),
     date: `${ts.getMonth()+1}/${ts.getDate()}/${ts.getFullYear()}`,
-    hhmm: `${ts.getHours()}:${ts.getMinutes().toString().padStart(2,'0')}:${ts.getSeconds().toString().padStart(2,'0')}`,
+    hhmm: fmtTime(ts),
     operator,
   };
 
@@ -1045,7 +1061,7 @@ function logComment(comment) {
     unit: currentUnit,
     time: fmtTs(ts),
     date: `${ts.getMonth()+1}/${ts.getDate()}/${ts.getFullYear()}`,
-    hhmm: `${ts.getHours()}:${ts.getMinutes().toString().padStart(2,'0')}:${ts.getSeconds().toString().padStart(2,'0')}`,
+    hhmm: fmtTime(ts),
     operator,
   };
 
@@ -1212,7 +1228,7 @@ async function loadLogFromFile(op) {
 function saveLogToFile() {
   try {
     const { CsvLog } = window.Capacitor.Plugins;
-    CsvLog.writeAll({ operator, content: logRowsToCsv(logRows) });
+    CsvLog.writeAll({ operator, content: logRowsToCsv(logRows) }).catch(() => {});
   } catch {}
 }
 

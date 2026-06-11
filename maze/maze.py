@@ -51,17 +51,6 @@ def generate_maze(w: int, h: int) -> list[list[bool]]:
 
     visited = [[False] * w for _ in range(h)]
 
-    def carve(cx: int, cy: int) -> None:
-        visited[cy][cx] = True
-        dirs = [(0, -1), (0, 1), (-1, 0), (1, 0)]
-        random.shuffle(dirs)
-        for dx, dy in dirs:
-            nx, ny = cx + dx, cy + dy
-            if 0 <= nx < w and 0 <= ny < h and not visited[ny][nx]:
-                # Remove wall between (cx,cy) and (nx,ny)
-                grid[2 * cy + 1 + dy][2 * cx + 1 + dx] = True
-                carve(nx, ny)
-
     # Iterative DFS to avoid Python recursion limit on larger mazes
     stack = [(0, 0)]
     visited[0][0] = True

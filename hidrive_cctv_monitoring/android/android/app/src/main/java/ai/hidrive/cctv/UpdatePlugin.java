@@ -54,6 +54,7 @@ public class UpdatePlugin extends Plugin {
 
         try (Response resp = client.newCall(req.build()).execute()) {
             if (!resp.isSuccessful()) throw new IOException("Download failed: HTTP " + resp.code());
+            if (resp.body() == null) throw new IOException("Empty response body");
             File apkFile = new File(getContext().getCacheDir(), "update.apk");
             try (InputStream is = resp.body().byteStream();
                  FileOutputStream fos = new FileOutputStream(apkFile)) {

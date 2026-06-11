@@ -164,7 +164,6 @@ def tick(grid: list[list[int]], lifetime: list[list[int]], frame: int) -> None:
                     # Try diagonal
                     diags = [(-1, 1), (1, 1)]  # (dc, dr) where dr=+1 means below
                     random.shuffle(diags)
-                    placed = False
                     for dc, dr in diags:
                         nc = c + dc
                         nr = r + dr
@@ -174,14 +173,12 @@ def tick(grid: list[list[int]], lifetime: list[list[int]], frame: int) -> None:
                                 grid[r][c] = EMPTY
                                 moved[nr][nc] = True
                                 moved[r][c] = True
-                                placed = True
                                 break
                             elif grid[nr][nc] == WATER:
                                 grid[nr][nc] = SAND
                                 grid[r][c] = WATER
                                 moved[nr][nc] = True
                                 moved[r][c] = True
-                                placed = True
                                 break
 
             elif mat == WATER:

@@ -106,8 +106,7 @@ class DiamondSquare:
         self._build_queue()
 
     def _init_corners(self) -> None:
-        sz = GRID_H - 1  # 32
-        # corners must fit in both dimensions; GRID_W-1 = 64 = 2*sz
+        # corners: GRID_W-1 = 64 = 2*(GRID_H-1), rectangular extension of diamond-square
         self.grid[0][0] = self._rng.random()
         self.grid[0][GRID_W - 1] = self._rng.random()
         self.grid[GRID_H - 1][0] = self._rng.random()

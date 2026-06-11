@@ -314,9 +314,6 @@ class FourierApp(App):
         self.query_one("#lbl_terms", Label).update(f"Terms: {self._n_terms}")
 
     def _tick(self) -> None:
-        # advance time and push waveform sample
-        angle0 = 2 * math.pi * self._coeffs[0][1] * self._t + self._coeffs[0][2] if self._coeffs else 0
-        # compute actual tip y by summing all terms
         py = 0.0
         for amp, freq, phase in self._coeffs:
             py += amp * math.sin(2 * math.pi * freq * self._t + phase) * 0.5
