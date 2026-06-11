@@ -212,6 +212,114 @@ python3 swarm.py
 
 ---
 
+### [`pendulum/`](pendulum/) — PENDULUM
+
+A double pendulum chaos visualiser. Two linked pendulums integrated with RK4, rendered in the terminal with fading trails. The physics is exact — the standard Lagrangian equations of motion, softened only by the fact that the gravitational constant is scaled to fit a terminal window, which Lagrange would have found undignified but I think he would have come around.
+
+The interesting part: press G to spawn a Ghost pendulum, identical to the first except θ₁ is offset by 0.01 radians — about half a degree. Watch the two trails track each other faithfully for a while, then peel apart into completely different trajectories. That is chaos. That is sensitive dependence on initial conditions. That is also the reason long-range weather forecasting is difficult, but we don't have time to get into that.
+
+> *"What is your name?" "Arthur, King of the Britons." "What is your initial angle?" "Ninety degrees." "What is your quest?" "The grail — wait, why are the trails diverging?"*
+
+**Run with:**
+```bash
+cd pendulum
+pip install -r requirements.txt
+python3 pendulum.py
+# G: spawn ghost pendulum | Space: pause | R: reset
+```
+
+---
+
+### [`diffusion/`](diffusion/) — DIFFUSION
+
+A Gray-Scott reaction-diffusion simulator. Two chemical species — a feed chemical U and a catalyst V — diffuse and react across a grid according to three parameters: diffusion rates, feed rate, and kill rate. From these, organic patterns emerge spontaneously: spots, stripes, mazes, coral-like branching, mitosis-like division. Turing called this chemical basis of morphogenesis in 1952. This is that, in a terminal, which he did not anticipate but would presumably have appreciated.
+
+Six presets covering the main pattern families. Each runs its own f/k combination. The Chaos preset is particularly honest about its intentions.
+
+> *"She's a witch — she turned me into a reaction-diffusion pattern." "Well, you grew quite a nice Turing stripe. That's something."*
+
+**Run with:**
+```bash
+cd diffusion
+pip install -r requirements.txt
+python3 diffusion.py
+```
+
+---
+
+### [`life/`](life/) — LIFE
+
+Conway's Game of Life. Four rules. Infinite complexity. You know the one. This one does it properly: age-coloured cells (white → cyan → blue → magenta as cells survive longer), six pre-loaded patterns (Glider, Gosper Glider Gun, Pulsar, R-Pentomino, Lightweight Spaceship, Random), cursor-based free drawing, and adjustable speed.
+
+The R-Pentomino is five cells that takes 1,103 generations to stabilise. I mention this because I find it philosophically relevant to the act of writing software in general.
+
+> *"She's got huge... tracts of live cells." "What?" "I mean the Gosper Gun. It's producing gliders."*
+
+**Run with:**
+```bash
+cd life
+pip install -r requirements.txt
+python3 life.py
+# Arrow keys: move cursor | Space: toggle cell | D: draw mode | P: pause
+```
+
+---
+
+### [`maze/`](maze/) — MAZE
+
+A procedural maze generator with four solving algorithms racing simultaneously. Maze generated instantly via recursive backtracker DFS. Then BFS, DFS, A\*, and Dijkstra all start from the same entrance at the same moment, each exploring in its own colour, frontiers expanding across the display until they find the exit.
+
+BFS and Dijkstra find the shortest path. DFS finds *a* path, usually a horrible winding one, but it gets there with a certain manic determination. A\* uses Manhattan distance as its heuristic and tends to look like it knows what it's doing, which is more than can be said for the DFS.
+
+> *"You must cross the Bridge of Death and answer me these questions three. What algorithm do you use? What is your heuristic? What is the Manhattan distance to the exit?" "BFS, none, and irrelevant." "Right, off you go then."*
+
+**Run with:**
+```bash
+cd maze
+pip install -r requirements.txt
+python3 maze.py
+# N: new maze | Space: pause | 1x/5x/20x speed
+```
+
+---
+
+### [`fourier/`](fourier/) — FOURIER
+
+A Fourier series epicycles animator. A collection of rotating circles — each spinning at a harmonic frequency — whose combined tip traces out a target waveform. On the left: the epicycles spinning. On the right: the waveform being drawn. A horizontal line connects tip to trace in real time.
+
+Five waveforms: square, sawtooth, triangle, circle, and figure-8. Adjust the number of terms from 1 to 20 and watch the approximation improve as higher harmonics snap the corners sharp. At one term it's a circle. At twenty terms the square wave has corners you could cut yourself on.
+
+Fourier died in 1830, which predates the terminal by some margin, but I maintain he would have been pleased.
+
+> *"And what did the Fourier series ever do for us?" "Well, there's the signal processing, the JPEG compression, the audio codec, the radio transmission, the—" "All right, but apart from that."*
+
+**Run with:**
+```bash
+cd fourier
+pip install -r requirements.txt
+python3 fourier.py
+```
+
+---
+
+### [`terrain/`](terrain/) — TERRAIN
+
+A procedural terrain generator using the diamond-square algorithm. Watch the heightmap generate cell-by-cell — unvisited cells shown as `?` in grey, terrain colours appearing as each point is computed. Deep ocean, shallow water, beach, grassland, forest, mountain, snow. Adjust roughness and sea level, press N for a new seed, and search for somewhere worth ruling over.
+
+The diamond-square algorithm is a fractal subdivision technique from 1982. It is not physically accurate. The mountains do not have rain shadows. The rivers do not flow. The forests do not burn, despite the presence of fire in `sandpit/`. This is a heightmap generator, not a geologist, and I would ask you to manage your expectations accordingly.
+
+> *"Look, strange women lying in ponds distributing swords is no basis for a system of government — but that mountain range in the top-left does look quite defensible."*
+
+**Run with:**
+```bash
+cd terrain
+pip install -r requirements.txt
+python3 terrain.py
+# N: new terrain | Roughness / Sea Level adjustable via +/- buttons
+```
+
+---
+
 ## General Notes
 
 - Everything here requires Python 3.10+ because I refuse to write `Union[X, Y]` when `X | Y` exists.
