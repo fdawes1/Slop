@@ -87,9 +87,9 @@ def render_grid(V: list[list[float]]) -> Text:
             if v < 0.1:
                 text.append(" ", style="default")
             elif v < 0.2:
-                text.append("·", style="grey")
+                text.append("·", style="grey30")
             elif v < 0.35:
-                text.append("░", style="grey")
+                text.append("░", style="grey50")
             elif v < 0.5:
                 text.append("▒", style="bright_blue")
             elif v < 0.65:
