@@ -197,7 +197,7 @@ class LifeApp(App):
 
     .title {
         text-align: center;
-        color: bright_cyan;
+        color: ansi_bright_cyan;
         text-style: bold;
         margin-bottom: 1;
     }
@@ -239,7 +239,7 @@ class LifeApp(App):
     #draw-indicator {
         height: 1;
         padding: 0 1;
-        color: bright_green;
+        color: ansi_bright_green;
     }
     """
 

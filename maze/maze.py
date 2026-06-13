@@ -335,7 +335,7 @@ class MazeApp(App):
         text-style: bold;
     }
     .title-label {
-        color: bright_white;
+        color: ansi_bright_white;
         text-style: bold;
         height: 1;
         margin-bottom: 1;
@@ -368,7 +368,7 @@ class MazeApp(App):
     #winner {
         height: 1;
         margin-top: 1;
-        color: bright_white;
+        color: ansi_bright_white;
         text-style: bold;
     }
     """

@@ -87,17 +87,17 @@ def render_grid(V: list[list[float]]) -> Text:
             if v < 0.1:
                 text.append(" ", style="default")
             elif v < 0.2:
-                text.append("·", style="grey30")
+                text.append("·", style="grey")
             elif v < 0.35:
-                text.append("░", style="grey50")
+                text.append("░", style="grey")
             elif v < 0.5:
-                text.append("▒", style="bright_blue")
+                text.append("▒", style="ansi_bright_blue")
             elif v < 0.65:
-                text.append("▓", style="bright_cyan")
+                text.append("▓", style="ansi_bright_cyan")
             elif v < 0.8:
-                text.append("█", style="bright_green")
+                text.append("█", style="ansi_bright_green")
             else:
-                text.append("█", style="bright_yellow")
+                text.append("█", style="ansi_bright_yellow")
         text.append("\n")
     return text
 
@@ -111,13 +111,13 @@ class DiffusionApp(App):
         border-right: solid #0a2a3a;
     }
     #title {
-        color: bright_cyan;
+        color: ansi_bright_cyan;
         text-style: bold;
         margin-bottom: 1;
         height: 1;
     }
     .section-lbl {
-        color: grey50;
+        color: grey;
         margin-top: 1;
         height: 1;
     }
@@ -133,13 +133,13 @@ class DiffusionApp(App):
     }
     #stats {
         margin-top: 2;
-        color: grey50;
+        color: grey;
     }
     #canvas {
         padding: 1 1;
     }
     Footer { background: #000408; }
-    Header { background: #000408; color: bright_cyan; }
+    Header { background: #000408; color: ansi_bright_cyan; }
     """
     TITLE = "DIFFUSION  --  Gray-Scott Reaction-Diffusion"
     BINDINGS = [

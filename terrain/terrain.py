@@ -234,7 +234,7 @@ class TerrainApp(App):
         border-right: solid $primary-darken-3;
     }
     .lbl { color: $text-muted; margin-top: 1; height: 1; }
-    .title { color: bright_white; text-style: bold; margin-bottom: 1; }
+    .title { color: ansi_bright_white; text-style: bold; margin-bottom: 1; }
     .btn { margin-top: 1; width: 100%; }
     .row { height: 3; }
     .adj-btn { width: 5; min-width: 5; }

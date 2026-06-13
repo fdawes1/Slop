@@ -237,7 +237,7 @@ class FourierApp(App):
         content-align: left middle;
     }
     #title {
-        color: bright_cyan;
+        color: ansi_bright_cyan;
         text-style: bold;
         height: 2;
         content-align: center middle;

@@ -231,7 +231,7 @@ class SwarmApp(App):
         margin-top: 1;
         width: 100%;
     }
-    #stats-lbl {
+    #stats_lbl {
         color: #6060a0;
         margin-top: 1;
     }
@@ -240,7 +240,7 @@ class SwarmApp(App):
         border: solid #2a2a5a;
     }
     #title-lbl {
-        color: bright_cyan;
+        color: ansi_bright_cyan;
         text-style: bold;
         margin-bottom: 1;
         height: 1;
