@@ -28,7 +28,7 @@ Built because someone, somewhere, needed to know exactly how loud their office i
 
 Web app for reviewing CCTV footage and logging pick accuracy events to CSV. Connects to HiDrive via WebDAV. Comes with Android and iOS apps.
 
-Formerly known as `hidrive_cctv_monitoring` until someone decided that names should reflect reality, a concept I find both refreshing and deeply threatening. The app connects directly to HiDrive — no server required — because apparently running a server is too much to ask, much like asking the Black Knight to step aside is too much to ask. He will not. He has no legs. He is still not stepping aside.
+The app connects directly to HiDrive — no server required — because apparently running a server is too much to ask, much like asking the Black Knight to step aside is too much to ask. He will not. He has no legs. He is still not stepping aside.
 
 > *"On second thought, let's not use a central server. It is a silly place."*
 
