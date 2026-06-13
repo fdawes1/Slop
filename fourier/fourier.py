@@ -174,7 +174,7 @@ def render_frame(
         ny = py + amp * math.sin(angle) * 0.5
         # clamp drawing to left half
         color = _arm_colour(idx, total)
-        draw_circle(grid, px, py, amp, "·", "grey23")
+        draw_circle(grid, px, py, amp, "·", "grey42")
         draw_line(grid, px, py, nx, ny, "auto", color)
         px, py = nx, ny
 
@@ -197,12 +197,12 @@ def render_frame(
     if n_buf > 0:
         cur_col = SPLIT + WAVE_LEN - 1
         cur_row = int(round(CENTRE_Y + buf_list[-1]))
-        draw_line(grid, tip_x, tip_y, cur_col, cur_row, "─", "grey42")
+        draw_line(grid, tip_x, tip_y, cur_col, cur_row, "─", "grey58")
 
     # ── separator line ──
     for row in range(CANVAS_H):
         if grid[row][SPLIT] == BLANK:
-            grid[row][SPLIT] = ("│", "grey23")
+            grid[row][SPLIT] = ("│", "grey42")
 
     # ── build Rich Text ──
     text = Text(no_wrap=True)
@@ -266,10 +266,10 @@ class FourierApp(App):
     def _rebuild_coeffs(self) -> None:
         _, fn = WAVEFORMS[self._waveform]
         self._coeffs = fn(self._n_terms)
-        # scale so max amplitude fits left half (0–35)
+        # always scale so total amplitude = 13 (fills left half, 1-char margin)
         total_amp = sum(abs(a) for a, _, __ in self._coeffs)
-        if total_amp > 14:
-            scale = 14.0 / total_amp
+        if total_amp > 0:
+            scale = 13.0 / total_amp
             self._coeffs = [(a * scale, f, p) for a, f, p in self._coeffs]
 
     def compose(self) -> ComposeResult:

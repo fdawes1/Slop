@@ -260,7 +260,7 @@ def render_maze(
     """
     # Build a flat char+style grid: list of rows, each row a list of (char, style)
     canvas: list[list[tuple[str, str]]] = [
-        [("█", "grey30")] * DISP_W for _ in range(DISP_H)
+        [("█", "grey50")] * DISP_W for _ in range(DISP_H)
     ]
 
     # Carve open passages from the maze boolean grid

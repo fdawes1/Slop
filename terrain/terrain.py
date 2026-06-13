@@ -31,7 +31,7 @@ BASE_THRESHOLDS = [
 ]
 
 UNGENERATED_CHAR = "?"
-UNGENERATED_STYLE = "grey30"
+UNGENERATED_STYLE = "grey46"
 
 # Cells per timer tick during generation animation
 CELLS_PER_TICK = 12

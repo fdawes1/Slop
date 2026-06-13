@@ -106,7 +106,7 @@ def render_bodies(bodies: list[Body]) -> Text:
                 continue
             # Recent positions are brighter
             frac = idx / max(trail_len - 1, 1)
-            style = "grey50" if frac > 0.5 else "grey30"
+            style = "grey70" if frac > 0.5 else "grey46"
             grid[cy][cx] = ("·", style)
 
     # Draw bodies on top
