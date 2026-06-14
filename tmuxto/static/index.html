@@ -1963,10 +1963,9 @@ function renderSessionsList() {
   if (!list) return;
   const sessions = lastData || [];
   if (!sessions.length) { list.innerHTML = '<div id="sess-empty">no sessions</div>'; return; }
-  const colors = ['var(--accent)','var(--blue)','var(--purple)','var(--cyan)','var(--yellow)','var(--red)'];
-  list.innerHTML = sessions.map((s, i) => {
+  list.innerHTML = sessions.map((s) => {
     const panes = s.windows.reduce((n, w) => n + w.panes.length, 0);
-    const col = colors[i % colors.length];
+    const col = sessionColor(s.name);
     return `<div class="sess-row">
       <div class="sess-dot" style="background:${col}"></div>
       <span class="sess-name">${esc(s.name)}</span>
