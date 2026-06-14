@@ -467,9 +467,12 @@ html[data-theme="light"] #launcher { background: rgba(236,240,250,.97); }
 .launcher-pane:hover { background: rgba(255,255,255,.05); border-left-color: var(--sc, var(--blue)); }
 .launcher-pane.open { color: var(--dim); cursor: default; border-left-color: transparent; }
 .launcher-pane.open:hover { background: transparent; }
+.launcher-pane.open-other { color: var(--text); cursor: pointer; border-left-color: var(--accent); opacity:.7; }
+.launcher-pane.open-other:hover { background: rgba(255,255,255,.04); opacity:1; }
 .launcher-pane-cmd { flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap; }
 .launcher-pane-sz { font-size:8px;color:var(--dim);flex-shrink:0; }
 .launcher-pane-open { font-size:8px;color:var(--accent);flex-shrink:0; }
+.launcher-pane-open.open-other { color:var(--orange,#e5a46c); }
 .launcher-empty { padding:24px;text-align:center;font-size:10px;color:var(--dim); }
 .launcher-actions { padding:8px 10px;border-top:1px solid rgba(255,255,255,.06);display:flex;gap:5px; }
 .launcher-act-btn {
@@ -1783,12 +1786,15 @@ function updateLauncher() {
       for (const p of w.panes) {
         const label = customLabels.panes[p.target] || p.command;
         if (q && !label.toLowerCase().includes(q) && !p.target.toLowerCase().includes(q) && !sessLabel.toLowerCase().includes(q)) continue;
-        const open = !!targetToWin[p.target];
+        const existingWid = targetToWin[p.target];
+        const open = !!existingWid;
+        const openWS = open ? (wsMap[existingWid] || 1) : 0;
+        const sameWS = openWS === currentWS;
         total++;
-        winHtml += `<div class="launcher-pane ${open?'open':''}" onclick="${open?'':'openWin(\''+esc(p.target)+'\')'}">
+        winHtml += `<div class="launcher-pane ${open ? (sameWS ? 'open' : 'open open-other') : ''}" onclick="openWin('${esc(p.target)}')">
           <span class="launcher-pane-cmd">${esc(label)}</span>
           <span class="launcher-pane-sz">${p.width}×${p.height}</span>
-          ${open ? `<span class="launcher-pane-open">WS${wsMap[targetToWin[p.target]]||1}</span>` : ''}
+          ${open ? `<span class="launcher-pane-open${sameWS?'':' open-other'}" title="${sameWS?'':'click to move to current workspace'}">WS${openWS}</span>` : ''}
         </div>`;
       }
       if (winHtml) sessHtml += `<div class="launcher-win">${w.index}: ${esc(w.name)}</div>` + winHtml;
@@ -1799,7 +1805,16 @@ function updateLauncher() {
 }
 
 function openWin(target) {
+  closedPanes.delete(target);
   if (!lastData) return;
+  // If already open on a different workspace, move it here; if same WS, just focus it
+  const existingWid = targetToWin[target];
+  if (existingWid) {
+    if ((wsMap[existingWid] || 1) !== currentWS) moveWinToWS(existingWid, currentWS);
+    focusWin(existingWid);
+    updateLauncher();
+    return;
+  }
   for (const s of lastData) for (const w of s.windows) for (const p of w.panes)
     if (p.target === target) {
       const { w: vw, h: vh } = deskViewport();
@@ -1814,16 +1829,27 @@ function openWin(target) {
 function openAllPanes() {
   if (!lastData) return;
   const unopened = [];
-  for (const s of lastData) for (const w of s.windows) for (const p of w.panes)
-    if (!targetToWin[p.target]) unopened.push(p);
-  if (!unopened.length) return;
-  initAutoLayout(unopened);
+  for (const s of lastData) for (const w of s.windows) for (const p of w.panes) {
+    const existingWid = targetToWin[p.target];
+    if (!existingWid) {
+      closedPanes.delete(p.target);
+      unopened.push(p);
+    } else if ((wsMap[existingWid] || 1) !== currentWS) {
+      moveWinToWS(existingWid, currentWS);
+    }
+  }
+  if (unopened.length) initAutoLayout(unopened);
   updateLauncher();
   closeLauncher();
 }
 
 function closeAllWins() {
-  for (const wid of Object.keys(wins).filter(id => (wsMap[id]||1) === currentWS)) closeWin(wid, true);
+  const wids = Object.keys(wins).filter(id => (wsMap[id]||1) === currentWS);
+  for (const wid of wids) {
+    const win = wins[wid];
+    if (win) closedPanes.add(win.target);
+    closeWin(wid, true);
+  }
   saveLayout();
   updateTaskbar();
   updateLauncher();
