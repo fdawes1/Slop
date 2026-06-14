@@ -202,7 +202,7 @@ async def ws_handler(ws: WebSocket, interval: float = 1.0):
         while True:
             if conn.connected:
                 try:
-                    tree = await asyncio.get_event_loop().run_in_executor(
+                    tree = await asyncio.get_running_loop().run_in_executor(
                         None, conn.get_tree
                     )
                     await ws.send_text(json.dumps({"sessions": tree}))
@@ -212,7 +212,7 @@ async def ws_handler(ws: WebSocket, interval: float = 1.0):
                 # Auto-reconnect SSH connections
                 if conn._mode == "ssh" and conn._conn_params:
                     try:
-                        await asyncio.get_event_loop().run_in_executor(None, conn._reconnect)
+                        await asyncio.get_running_loop().run_in_executor(None, conn._reconnect)
                     except Exception:
                         pass
                 await ws.send_text(json.dumps({"sessions": None}))

@@ -1279,9 +1279,11 @@ function closeWin(wid, silent=false) {
     if (remaining.length) setTimeout(() => enterFocusMode(remaining[0]), 0);
     else exitFocusMode();
   }
-  if (!silent) saveLayout();
-  updateTaskbar();
-  updateLauncher();
+  if (!silent) {
+    saveLayout();
+    updateTaskbar();
+    updateLauncher();
+  }
 }
 
 function focusWin(wid) {
@@ -1702,6 +1704,7 @@ function tick(data) {
   // Overlay
   if (overlayTarget && paneMap[overlayTarget]) updateOverlayContent(paneMap[overlayTarget].content);
 
+  updateTaskbar();
   updateLauncher();
 }
 
@@ -1785,7 +1788,7 @@ function updateLauncher() {
         winHtml += `<div class="launcher-pane ${open?'open':''}" onclick="${open?'':'openWin(\''+esc(p.target)+'\')'}">
           <span class="launcher-pane-cmd">${esc(label)}</span>
           <span class="launcher-pane-sz">${p.width}×${p.height}</span>
-          ${open ? '<span class="launcher-pane-open">WS${wsMap[targetToWin[p.target]]||1}</span>' : ''}
+          ${open ? `<span class="launcher-pane-open">WS${wsMap[targetToWin[p.target]]||1}</span>` : ''}
         </div>`;
       }
       if (winHtml) sessHtml += `<div class="launcher-win">${w.index}: ${esc(w.name)}</div>` + winHtml;
@@ -1867,7 +1870,7 @@ function enterFocusMode(mainWid) {
     });
   }
 
-  desk.classList.add('focus-mode');
+  document.getElementById('desktop').classList.add('focus-mode');
   document.querySelectorAll('.fw.fw-main').forEach(e => e.classList.remove('fw-main'));
   document.getElementById('fw-' + mainWid)?.classList.add('fw-main');
   document.getElementById('focus-badge')?.classList.add('show');
@@ -2034,7 +2037,7 @@ document.getElementById('ov-input').addEventListener('keydown', e => {
   if (!overlayTarget) return; e.preventDefault();
   const k=e.key;
   if(k==='Escape'){closeOverlay();return;}
-  if(k==='Enter'){const v=e.target.value;if(v){sendKeys(overlayTarget,v,true);e.target.value='';}else sendKeys(overlayTarget,'Enter',false);return;}
+  if(k==='Enter'){const v=e.target.value;if(v){sendKeys(overlayTarget,v,true);sendKeys(overlayTarget,'Enter',false);e.target.value='';}else sendKeys(overlayTarget,'Enter',false);return;}
   if(k==='Backspace'){sendKeys(overlayTarget,'BSpace',false);return;}
   if(k==='Tab'){sendKeys(overlayTarget,'Tab',false);return;}
   if(k==='ArrowUp'){sendKeys(overlayTarget,'Up',false);return;}
@@ -2356,7 +2359,17 @@ async function doConnect() {
   }
   try {
     const d=await fetch('/api/connect',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)}).then(r=>r.json());
-    if(d.success){closeConnPanel();_firstBatch=true;}
+    if(d.success){
+      closeConnPanel();
+      // Clear all window state so the new connection starts fresh
+      for (const wid of Object.keys(wins)) document.getElementById('fw-' + wid)?.remove();
+      for (const k of Object.keys(wins)) { delete wins[k]; delete wsMap[k]; }
+      for (const k of Object.keys(targetToWin)) delete targetToWin[k];
+      closedPanes.clear();
+      if (tuiWid) exitTuiMode();
+      if (focusMode) exitFocusMode();
+      _firstBatch = true;
+    }
     else{err.textContent=d.error||'connection failed';err.style.display='block';}
   } catch(e){err.textContent=String(e);err.style.display='block';}
   btn.disabled=false;
