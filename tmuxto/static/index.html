@@ -185,6 +185,14 @@ html[data-theme="light"] #desktop-wrap {
   min-width: 100%;
   min-height: 100%;
 }
+#drag-grid {
+  display: none; position: absolute; inset: 0; pointer-events: none; z-index: 1;
+  background-image:
+    linear-gradient(rgba(88,166,255,.07) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(88,166,255,.07) 1px, transparent 1px);
+  background-size: 40px 40px;
+}
+#drag-grid.show { display: block; }
 
 /* ── Taskbar ── */
 #taskbar {
@@ -558,6 +566,37 @@ html[data-theme="light"] #settings-panel { background:rgba(236,240,250,.97); }
 .sess-new button:hover { background:rgba(63,214,140,.18); border-color:rgba(63,214,140,.45); }
 #sess-empty { padding:10px 14px; font-size:10px; color:var(--dim); text-align:center; }
 
+/* ── Layouts panel ── */
+#layouts-wrap { position:relative; }
+#layouts-panel {
+  display:none; position:absolute; top:calc(100% + 6px); right:0;
+  background:rgba(6,7,12,.96); backdrop-filter:blur(40px) saturate(1.5);
+  -webkit-backdrop-filter:blur(40px) saturate(1.5);
+  border:1px solid rgba(255,255,255,.1); border-radius:10px;
+  padding:6px 0; min-width:230px; z-index:9500;
+  box-shadow:0 2px 8px rgba(0,0,0,.4),0 16px 48px rgba(0,0,0,.7),0 0 0 .5px rgba(255,255,255,.04) inset;
+  animation: fw-in .16s cubic-bezier(.22,.68,0,1.1) both;
+}
+#layouts-panel.open { display:block; }
+.lt-row {
+  display:flex; align-items:center; gap:6px;
+  padding:5px 12px; font-size:10px; color:var(--text);
+  border-bottom:1px solid var(--border);
+}
+.lt-row:last-of-type { border-bottom:none; }
+.lt-name { flex:1; font-family:var(--font); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.lt-restore {
+  background:rgba(88,166,255,.1); border:1px solid rgba(88,166,255,.2); border-radius:3px;
+  color:rgba(88,166,255,.7); font-size:9px; cursor:pointer; padding:1px 5px; transition:all .12s;
+}
+.lt-restore:hover { background:rgba(88,166,255,.2); border-color:rgba(88,166,255,.5); color:var(--blue); }
+.lt-del {
+  background:none; border:1px solid rgba(240,112,112,.15); border-radius:3px;
+  color:rgba(240,112,112,.4); font-size:9px; cursor:pointer; padding:1px 5px; transition:all .12s;
+}
+.lt-del:hover { background:rgba(240,112,112,.1); border-color:rgba(240,112,112,.45); color:var(--red); }
+#lt-empty { padding:10px 14px; font-size:10px; color:var(--dim); text-align:center; }
+
 /* ── Connection panel ── */
 #conn-panel {
   display:none;position:fixed;inset:0;z-index:9900;
@@ -804,6 +843,17 @@ html[data-theme="light"] .launcher-search { background: rgba(0,0,0,.06); border-
   <span class="hdr-spacer"></span>
   <span class="ts" id="ts"></span>
   <button class="hdr-btn primary" onclick="toggleLauncher()">＋ open pane</button>
+  <div id="layouts-wrap">
+    <button class="hdr-btn" id="layouts-btn" onclick="toggleLayoutsPanel()">⊡ layouts</button>
+    <div id="layouts-panel">
+      <div class="setting-section-hd">saved layouts</div>
+      <div id="lt-list"></div>
+      <div class="sess-new">
+        <input id="lt-name-input" placeholder="layout name" onkeydown="if(event.key==='Enter')saveLayoutTemplate()" />
+        <button onclick="saveLayoutTemplate()">save</button>
+      </div>
+    </div>
+  </div>
   <div id="sessions-wrap">
     <button class="hdr-btn" id="sessions-btn" onclick="toggleSessionsPanel()">⊟ sessions</button>
     <div id="sessions-panel">
@@ -952,7 +1002,7 @@ html[data-theme="light"] .launcher-search { background: rgba(0,0,0,.06); border-
   </div>
 </header>
 
-<div id="desktop-wrap"><div id="desktop"></div></div>
+<div id="desktop-wrap"><div id="desktop"><div id="drag-grid"></div></div></div>
 
 <div id="taskbar">
   <div id="ws-bar"></div>
@@ -1276,6 +1326,11 @@ function expandDesktop() {
 // ── Snap ──────────────────────────────────────────────────────────────────────
 
 let SNAP = 14;
+const GRID = 40;
+const snapG = v => Math.round(v / GRID) * GRID;
+
+function showDragGrid() { document.getElementById('drag-grid')?.classList.add('show'); }
+function hideDragGrid() { document.getElementById('drag-grid')?.classList.remove('show'); }
 
 function xEdges(excludeWid) {
   const es = [0];
@@ -1353,12 +1408,12 @@ function dragWin(e, wid) {
   const offX = (e.clientX - wr.left + wrap.scrollLeft) - win.x;
   const offY = (e.clientY - wr.top  + wrap.scrollTop)  - win.y;
   document.body.style.userSelect = 'none';
+  showDragGrid();
 
   const move = e => {
     const rawX = Math.max(0, (e.clientX - wr.left + wrap.scrollLeft) - offX);
     const rawY = Math.max(0, (e.clientY - wr.top  + wrap.scrollTop)  - offY);
-    const { x, y } = snapPos(wid, rawX, rawY);
-    win.x = x; win.y = y;
+    win.x = snapG(rawX); win.y = snapG(rawY);
     applyWinGeom(wid);
     expandDesktop();
   };
@@ -1366,7 +1421,7 @@ function dragWin(e, wid) {
     document.body.style.userSelect = '';
     document.removeEventListener('mousemove', move);
     document.removeEventListener('mouseup', up);
-    clearGuides();
+    hideDragGrid();
     saveLayout();
   };
   document.addEventListener('mousemove', move);
@@ -1381,16 +1436,15 @@ function resizeWin(e, wid, dir) {
   const sx = e.clientX, sy = e.clientY;
   document.body.style.userSelect = 'none';
   document.body.style.cursor = dir + '-resize';
+  showDragGrid();
 
   const move = e => {
     const dx = e.clientX - sx, dy = e.clientY - sy;
     let nx=x, ny=y, nw=w, nh=h;
-    // Compute raw edges then snap each moving edge independently
-    const xe = xEdges(wid), ye = yEdges(wid);
-    if (dir.includes('e')) { const raw=x+w+dx; nw=Math.max(160,snapVal(raw,xe)-x); }
-    if (dir.includes('s')) { const raw=y+h+dy; nh=Math.max(80, snapVal(raw,ye)-y); }
-    if (dir.includes('w')) { const raw=x+dx; nx=snapVal(raw,xe); nw=Math.max(160,x+w-nx); }
-    if (dir.includes('n')) { const raw=y+dy; ny=snapVal(raw,ye); nh=Math.max(80, y+h-ny); }
+    if (dir.includes('e')) { nw = Math.max(GRID, snapG(w + dx)); }
+    if (dir.includes('s')) { nh = Math.max(GRID, snapG(h + dy)); }
+    if (dir.includes('w')) { nx = snapG(x + dx); nw = Math.max(GRID, snapG(w - (nx - x))); }
+    if (dir.includes('n')) { ny = snapG(y + dy); nh = Math.max(GRID, snapG(h - (ny - y))); }
     win.x=nx; win.y=ny; win.w=nw; win.h=nh;
     applyWinGeom(wid);
     expandDesktop();
@@ -1400,7 +1454,7 @@ function resizeWin(e, wid, dir) {
     document.body.style.cursor = '';
     document.removeEventListener('mousemove', move);
     document.removeEventListener('mouseup', up);
-    clearGuides();
+    hideDragGrid();
     saveLayout();
     requestAnimationFrame(fitAllVisible);
   };
@@ -1975,6 +2029,71 @@ function updateHealth() {
 
 // ── Settings ──────────────────────────────────────────────────────────────────
 
+// ── Layout templates ─────────────────────────────────────────────────────────
+
+function loadLayoutTemplates() {
+  try { return JSON.parse(localStorage.getItem('tmuxto-lt') || '[]'); } catch { return []; }
+}
+function saveLayoutTemplates(templates) {
+  localStorage.setItem('tmuxto-lt', JSON.stringify(templates));
+}
+
+function toggleLayoutsPanel() {
+  const p=document.getElementById('layouts-panel'),b=document.getElementById('layouts-btn');
+  const open=p.classList.toggle('open'); b.classList.toggle('active',open);
+  if (open) renderLayoutsList();
+}
+
+function renderLayoutsList() {
+  const list = document.getElementById('lt-list');
+  if (!list) return;
+  const templates = loadLayoutTemplates();
+  if (!templates.length) { list.innerHTML = '<div id="lt-empty">no saved layouts</div>'; return; }
+  list.innerHTML = templates.map((t, i) =>
+    `<div class="lt-row">
+      <span class="lt-name">${esc(t.name)}</span>
+      <button class="lt-restore" onclick="restoreLayoutTemplate(${i})">restore</button>
+      <button class="lt-del" onclick="deleteLayoutTemplate(${i})">✕</button>
+    </div>`
+  ).join('');
+}
+
+function saveLayoutTemplate() {
+  const inp = document.getElementById('lt-name-input');
+  const name = inp.value.trim();
+  if (!name) return;
+  const snapshot = Object.entries(wins).map(([wid, w]) => ({
+    target: w.target, x: w.x, y: w.y, w: w.w, h: w.h, ws: wsMap[wid]||1
+  }));
+  const templates = loadLayoutTemplates().filter(t => t.name !== name);
+  templates.unshift({ name, snapshot });
+  saveLayoutTemplates(templates.slice(0, 20));
+  inp.value = '';
+  renderLayoutsList();
+}
+
+function restoreLayoutTemplate(i) {
+  const templates = loadLayoutTemplates();
+  const tpl = templates[i]; if (!tpl) return;
+  for (const entry of tpl.snapshot) {
+    const wid = targetToWin[entry.target];
+    if (!wid || !wins[wid]) continue;
+    wins[wid].x = entry.x; wins[wid].y = entry.y;
+    wins[wid].w = entry.w; wins[wid].h = entry.h;
+    applyWinGeom(wid);
+  }
+  saveLayout();
+  expandDesktop();
+  requestAnimationFrame(fitAllVisible);
+}
+
+function deleteLayoutTemplate(i) {
+  const templates = loadLayoutTemplates();
+  templates.splice(i, 1);
+  saveLayoutTemplates(templates);
+  renderLayoutsList();
+}
+
 // ── Sessions panel ────────────────────────────────────────────────────────────
 
 function toggleSessionsPanel() {
@@ -2030,6 +2149,8 @@ function closeTileMenu() {
 document.addEventListener('click', e => {
   const sw=document.querySelector('.settings-wrap');
   if (sw&&!sw.contains(e.target)) { document.getElementById('settings-panel').classList.remove('open'); document.getElementById('settings-btn').classList.remove('active'); }
+  const ltw=document.getElementById('layouts-wrap');
+  if (ltw&&!ltw.contains(e.target)) { document.getElementById('layouts-panel').classList.remove('open'); document.getElementById('layouts-btn').classList.remove('active'); }
   const ssw=document.getElementById('sessions-wrap');
   if (ssw&&!ssw.contains(e.target)) { document.getElementById('sessions-panel').classList.remove('open'); document.getElementById('sessions-btn').classList.remove('active'); }
   const tw=document.querySelector('.tile-wrap');
@@ -2300,6 +2421,8 @@ document.addEventListener('keydown', e => {
     document.getElementById('settings-btn')?.classList.remove('active');
     document.getElementById('sessions-panel')?.classList.remove('open');
     document.getElementById('sessions-btn')?.classList.remove('active');
+    document.getElementById('layouts-panel')?.classList.remove('open');
+    document.getElementById('layouts-btn')?.classList.remove('active');
     document.getElementById('tile-menu')?.classList.remove('open');
     document.getElementById('tile-btn')?.classList.remove('active');
     document.getElementById('launcher')?.classList.remove('open');
