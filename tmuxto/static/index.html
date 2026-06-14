@@ -340,7 +340,7 @@ html[data-theme="light"] .fw-cmd   { color: rgba(20,30,60,.8); }
 }
 html[data-theme="light"] .fw-body { background: #f0f2f8; }
 .fw-body pre {
-  font-family: var(--font); font-size: var(--term-fs, 11px); line-height: var(--term-lh, 1.42);
+  font-family: var(--font); font-size: var(--win-fs, var(--term-fs, 11px)); line-height: var(--term-lh, 1.42);
   white-space: pre-wrap; word-break: break-all; color: #cdd0de;
   font-feature-settings: "liga" 0;
   text-rendering: optimizeSpeed;
@@ -350,8 +350,8 @@ body.nowrap .fw-body pre { white-space: pre; word-break: normal; overflow-x: aut
 /* Status bar */
 .fw-status {
   flex-shrink: 0; height: 15px;
-  display: flex; align-items: center; gap: 8px;
-  padding: 0 7px;
+  display: flex; align-items: center; gap: 5px;
+  padding: 0 5px;
   background: #0c0d14;
   border-top: 1px solid rgba(255,255,255,.05);
   font-family: var(--font); font-size: 8px; color: rgba(140,150,180,.5);
@@ -360,7 +360,15 @@ body.nowrap .fw-body pre { white-space: pre; word-break: normal; overflow-x: aut
 .fw-status-cmd { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; }
 .fw-status-lock { color: var(--yellow); display: none; }
 .fw-status-lock.on { display: inline; }
-.fw-status-dims { margin-left: auto; flex-shrink: 0; font-variant-numeric: tabular-nums; color: rgba(140,150,180,.4); }
+.fw-status-dims { flex-shrink: 0; font-variant-numeric: tabular-nums; color: rgba(140,150,180,.4); }
+.fw-status-sep { color: rgba(140,150,180,.2); flex-shrink: 0; }
+.fw-fs-btn {
+  background: none; border: none; color: rgba(140,150,180,.35); cursor: pointer;
+  font-family: var(--font); font-size: 10px; line-height: 1; padding: 0 2px;
+  flex-shrink: 0; transition: color .1s;
+}
+.fw-fs-btn:hover { color: rgba(200,212,240,.9); }
+.fw-fs-val { font-size: 7px; color: rgba(140,150,180,.4); flex-shrink: 0; min-width: 18px; text-align: center; font-variant-numeric: tabular-nums; }
 html[data-theme="light"] .fw-status { background: #d0d4e0; color: rgba(60,70,100,.5); }
 
 /* Input row */
@@ -372,7 +380,7 @@ html[data-theme="light"] .fw-status { background: #d0d4e0; color: rgba(60,70,100
 }
 .fw-input input {
   flex: 1; background: transparent; border: none; outline: none;
-  color: var(--text); font-family: var(--font); font-size: var(--term-fs, 11px); padding: 0 7px;
+  color: var(--text); font-family: var(--font); font-size: var(--win-fs, var(--term-fs, 11px)); padding: 0 7px;
 }
 .fw-input input::placeholder { color: rgba(140,150,180,.3); }
 .fw-input button {
@@ -741,6 +749,21 @@ html[data-theme="light"] .launcher-search { background: rgba(0,0,0,.06); border-
 #focus-badge button { background:none;border:none;color:rgba(63,214,140,.5);cursor:pointer;font-size:9px;padding:0 0 0 3px;line-height:1; }
 #focus-badge button:hover { color:var(--red); }
 
+/* ── TUI interactive mode ── */
+.fw.tui-active { box-shadow: 0 0 0 1.5px rgba(63,214,140,.55), 0 8px 40px rgba(0,0,0,.7) !important; }
+.fw.tui-active .fw-bar { background: #0b1a10 !important; }
+.fw.tui-active .fw-body { cursor: text; }
+.fw.tui-active .fw-input { display: none !important; }
+#tui-badge {
+  display: none; align-items: center; gap: 6px;
+  padding: 2px 8px 2px 7px; border-radius: 20px;
+  border: 1px solid rgba(63,214,140,.35); background: rgba(63,214,140,.1);
+  font-size: 9px; color: var(--accent); letter-spacing: .04em;
+  animation: fade-in .2s ease;
+}
+#tui-badge.show { display: flex; }
+#tui-badge .tui-hint { opacity: .45; }
+
 /* ── Scrollbars ── */
 ::-webkit-scrollbar { width: 4px; height: 4px; }
 ::-webkit-scrollbar-track { background: transparent; }
@@ -760,6 +783,7 @@ html[data-theme="light"] .launcher-search { background: rgba(0,0,0,.06); border-
   </div>
   <span id="health-badge" class="health-badge"></span>
   <span id="focus-badge">focus <button onclick="exitFocusMode()">✕</button></span>
+  <span id="tui-badge">⌨ TUI <span class="tui-hint">Ctrl+\ to exit</span></span>
   <span class="hdr-spacer"></span>
   <span class="ts" id="ts"></span>
   <button class="hdr-btn primary" onclick="toggleLauncher()">＋ open pane</button>
@@ -1055,9 +1079,16 @@ const NUM_WS = 6;
 const wsMap  = {};   // wid → workspace number (1–6)
 let   currentWS = 1;
 
+// ── Per-window font size ──────────────────────────────────────────────────────
+const winFs = {}; // wid → px
+
 // ── Focus mode ────────────────────────────────────────────────────────────────
 let focusMode    = false;
 let focusMainWid = null;
+
+// ── TUI interactive mode ──────────────────────────────────────────────────────
+let tuiWid      = null;
+let _tuiLastEsc = 0;
 
 const newWid = () => 'w' + (++_wc);
 
@@ -1105,7 +1136,7 @@ function createWin(target, pane, x, y, w, h) {
         <button class="fw-btn" onclick="closeWin('${wid}')" title="close">✕</button>
       </div>
     </div>
-    <div class="fw-body" id="wbody-${wid}">
+    <div class="fw-body" id="wbody-${wid}" onclick="enterTuiMode('${wid}')">
       <pre id="wpre-${wid}">${pane ? ansiToHtml(pane.content) : ''}</pre>
     </div>
     <div class="fw-input">
@@ -1116,6 +1147,11 @@ function createWin(target, pane, x, y, w, h) {
     <div class="fw-status" id="wstatus-${wid}">
       <span class="fw-status-cmd">${esc(sessName)} · ${esc(cmd)}</span>
       <span class="fw-status-lock ${lockedPanes.has(target)?'on':''}" id="wlock-${wid}">∥</span>
+      <span class="fw-status-sep">·</span>
+      <button class="fw-fs-btn" onclick="changeWinFs('${wid}',-1)" title="decrease font size">−</button>
+      <span class="fw-fs-val" id="wfs-${wid}">11px</span>
+      <button class="fw-fs-btn" onclick="changeWinFs('${wid}',+1)" title="increase font size">+</button>
+      <span class="fw-status-sep">·</span>
       <span class="fw-status-dims" id="wdims-${wid}">${pane ? pane.width+'×'+pane.height : '?×?'}</span>
     </div>
     <div class="fw-r n"  onmousedown="resizeWin(event,'${wid}','n')"></div>
@@ -1142,6 +1178,7 @@ function createWin(target, pane, x, y, w, h) {
 
 function closeWin(wid, silent=false) {
   const win = wins[wid]; if (!win) return;
+  if (tuiWid === wid) exitTuiMode();
   const wasFocusMain = focusMode && wid === focusMainWid;
   delete targetToWin[win.target];
   delete wins[wid];
@@ -1329,7 +1366,7 @@ function resizeWin(e, wid, dir) {
     document.removeEventListener('mouseup', up);
     clearGuides();
     saveLayout();
-    fitPane(wins[wid]?.target);
+    requestAnimationFrame(fitAllVisible);
   };
   document.addEventListener('mousemove', move);
   document.addEventListener('mouseup', up);
@@ -1481,12 +1518,22 @@ function tick(data) {
     for (const s of saved) {
       if (paneTargets.has(s.target)) {
         createWin(s.target, paneMap[s.target], s.x, s.y, s.w, s.h);
-        // Restore workspace assignment
         const wid = targetToWin[s.target];
-        if (wid && s.ws && s.ws !== currentWS) {
-          wsMap[wid] = s.ws;
-          const el = document.getElementById('fw-' + wid);
-          if (el) el.style.display = 'none';
+        if (wid) {
+          // Restore workspace assignment
+          if (s.ws && s.ws !== currentWS) {
+            wsMap[wid] = s.ws;
+            const el = document.getElementById('fw-' + wid);
+            if (el) el.style.display = 'none';
+          }
+          // Restore per-window font size
+          if (s.fs) {
+            winFs[wid] = s.fs;
+            const el = document.getElementById('fw-' + wid);
+            if (el) el.style.setProperty('--win-fs', s.fs + 'px');
+            const fsEl = document.getElementById('wfs-' + wid);
+            if (fsEl) fsEl.textContent = s.fs + 'px';
+          }
         }
         restored++;
       }
@@ -1857,11 +1904,32 @@ async function fitPane(target) {
   if (!autoFit) return;
   const wid = targetToWin[target]; if (!wid) return;
   const body = document.getElementById('wbody-' + wid); if (!body) return;
-  const cols = Math.max(20, Math.floor(body.clientWidth  / charW));
-  const rows = Math.max(5,  Math.floor(body.clientHeight / rowH));
+  // Scale char dimensions by per-window font size relative to the global base
+  const globalFs = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--term-fs')) || 11;
+  const fs = winFs[wid] || globalFs;
+  const scale = fs / 11; // 11px is the reference size for charW/rowH defaults
+  const cols = Math.max(20, Math.floor(body.clientWidth  / (charW * scale)));
+  const rows = Math.max(5,  Math.floor(body.clientHeight / (rowH  * scale)));
   const dimsEl = document.getElementById('wdims-' + wid);
   if (dimsEl) dimsEl.textContent = cols + '×' + rows;
   await fetch('/api/resize-pane', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({target,width:cols,height:rows}) });
+}
+
+function fitAllVisible() {
+  const ids = Object.keys(wins).filter(id => !wins[id].min && (wsMap[id]||1) === currentWS);
+  for (const wid of ids) fitPane(wins[wid]?.target);
+}
+
+function changeWinFs(wid, delta) {
+  const cur = winFs[wid] || parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--term-fs')) || 11;
+  const next = Math.max(7, Math.min(22, cur + delta));
+  winFs[wid] = next;
+  const el = document.getElementById('fw-' + wid);
+  if (el) el.style.setProperty('--win-fs', next + 'px');
+  const fsEl = document.getElementById('wfs-' + wid);
+  if (fsEl) fsEl.textContent = next + 'px';
+  fitPane(wins[wid]?.target);
+  saveLayout();
 }
 
 // ── Overlay ───────────────────────────────────────────────────────────────────
@@ -1904,7 +1972,10 @@ document.getElementById('ov-input').addEventListener('keydown', e => {
 // ── Layout persistence ────────────────────────────────────────────────────────
 
 function saveLayout() {
-  const layout = Object.entries(wins).map(([id,w]) => ({ target:w.target, x:w.x, y:w.y, w:w.w, h:w.h, ws:wsMap[id]||1 }));
+  const layout = Object.entries(wins).map(([id,w]) => ({
+    target:w.target, x:w.x, y:w.y, w:w.w, h:w.h,
+    ws: wsMap[id]||1, fs: winFs[id]||null
+  }));
   localStorage.setItem('tmuxto-wlayout', JSON.stringify(layout));
 }
 
@@ -2105,9 +2176,81 @@ async function doConnect() {
   btn.disabled=false;
 }
 
+// ── TUI interactive mode ─────────────────────────────────────────────────────
+
+function enterTuiMode(wid) {
+  if (!wins[wid]) return;
+  if (tuiWid === wid) return;
+  if (tuiWid) exitTuiMode();
+  tuiWid = wid;
+  _tuiLastEsc = 0;
+  document.getElementById('fw-' + wid)?.classList.add('tui-active');
+  document.getElementById('tui-badge')?.classList.add('show');
+  focusWin(wid);
+}
+
+function exitTuiMode() {
+  if (!tuiWid) return;
+  document.getElementById('fw-' + tuiWid)?.classList.remove('tui-active');
+  tuiWid = null;
+  _tuiLastEsc = 0;
+  document.getElementById('tui-badge')?.classList.remove('show');
+}
+
+function keyEventToTmux(e) {
+  const k = e.key, ctrl = e.ctrlKey, alt = e.altKey;
+  const named = {
+    'ArrowUp':'Up','ArrowDown':'Down','ArrowLeft':'Left','ArrowRight':'Right',
+    'Enter':'Enter','Tab':'Tab','Backspace':'BSpace','Escape':'Escape',
+    'Delete':'DC','Insert':'IC','Home':'Home','End':'End',
+    'PageUp':'PgUp','PageDown':'PgDn',
+    'F1':'F1','F2':'F2','F3':'F3','F4':'F4','F5':'F5','F6':'F6',
+    'F7':'F7','F8':'F8','F9':'F9','F10':'F10','F11':'F11','F12':'F12',
+  };
+  if (ctrl && !alt && k.length === 1) return { keys: `C-${k}`, literal: false };
+  if (ctrl && !alt && named[k])       return { keys: `C-${named[k]}`, literal: false };
+  if (alt  && !ctrl && k.length === 1) return { keys: `M-${k}`, literal: false };
+  if (alt  && !ctrl && named[k])       return { keys: `M-${named[k]}`, literal: false };
+  if (named[k]) return { keys: named[k], literal: false };
+  if (k === ' ') return { keys: 'Space', literal: false };
+  if (k.length === 1) return { keys: k, literal: true };
+  return null;
+}
+
+// Exit TUI mode when clicking outside the active TUI window
+document.addEventListener('mousedown', e => {
+  if (tuiWid && !e.target.closest('#fw-' + tuiWid)) exitTuiMode();
+}, true);
+
 // ── Keyboard shortcuts ────────────────────────────────────────────────────────
 
 document.addEventListener('keydown', e => {
+  // TUI mode: route all keys to the active pane
+  if (tuiWid) {
+    // Ctrl+\ exits without sending
+    if (e.ctrlKey && e.key === '\\') { e.preventDefault(); exitTuiMode(); return; }
+    // Double-Escape exits
+    if (e.key === 'Escape') {
+      const now = Date.now();
+      if (now - _tuiLastEsc < 600) { exitTuiMode(); return; }
+      _tuiLastEsc = now;
+    } else {
+      _tuiLastEsc = 0;
+    }
+    const target = wins[tuiWid]?.target;
+    if (target) {
+      e.preventDefault();
+      e.stopPropagation();
+      const cmd = keyEventToTmux(e);
+      if (cmd) fetch('/api/send-keys', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ target, keys: cmd.keys, literal: cmd.literal })
+      });
+    }
+    return;
+  }
+
   // Skip when typing in any input
   if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
 
@@ -2170,6 +2313,16 @@ connect_ws();
 
 loadPrefs();
 setInterval(updateHealth, 1000);
+
+// Refit all panes when the desktop area changes size (browser zoom, sidebar, etc.)
+{
+  let _deskFitTimer = null;
+  const _deskObs = new ResizeObserver(() => {
+    clearTimeout(_deskFitTimer);
+    _deskFitTimer = setTimeout(fitAllVisible, 300);
+  });
+  _deskObs.observe(document.getElementById('desktop'));
+}
 
 (async () => {
   const st = await fetch('/api/status').then(r=>r.json()).catch(()=>({}));
