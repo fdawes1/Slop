@@ -320,6 +320,27 @@ python3 terrain.py
 
 ---
 
+### [`tmuxto/`](tmuxto/) — TMUXTO
+
+A floating window manager for tmux sessions, rendered in a browser. One FastAPI server, one WebSocket, one self-contained HTML file — no npm, no webpack, no suffering. Connect to your local tmux or an SSH host, and every pane opens as a draggable, resizable terminal window on an infinite scrollable canvas.
+
+Click a terminal body to enter full TUI mode. Every keypress — arrows, F-keys, Ctrl+x, Alt+x, the lot — goes directly to the tmux pane. You are, for all intents and purposes, using a terminal. In a browser. In a floating window. On a canvas you can drag around. Ctrl+\\ exits. The green glow confirms you are in control.
+
+Tile layouts because staring at chaotic windows is undignified: auto grid, 1–6 columns, 2×2, 3×2, horizontal stack, focus+sidebar, monocle, cascade, and a custom N×M grid. Six virtual workspaces (Alt+1–6 to switch, Alt+Shift+1–6 to move windows). Edge snapping. Per-window font size. Auto-fit pane dimensions on resize. A launcher to search and open panes. A sessions panel to kill and launch tmux sessions without touching a terminal directly, which is either deeply convenient or philosophically circular — I leave that to you.
+
+> *"Strange women lying in ponds distributing swords is no basis for a system of government — but Alt+2 gets you to workspace 2, which is at least a start."*
+
+**Run with:**
+```bash
+cd tmuxto
+pip install fastapi uvicorn
+python3 app.py
+# Then: http://localhost:8007
+```
+SSH to remote hosts works too, via the connection panel. Requires `paramiko`. The remote machine needs tmux. I should not have to say this, but experience suggests I do.
+
+---
+
 ## General Notes
 
 - Everything here requires Python 3.10+ because I refuse to write `Union[X, Y]` when `X | Y` exists.
