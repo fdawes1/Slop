@@ -190,7 +190,7 @@ html[data-theme="light"] #desktop-wrap {
   background-image:
     linear-gradient(rgba(88,166,255,.07) 1px, transparent 1px),
     linear-gradient(90deg, rgba(88,166,255,.07) 1px, transparent 1px);
-  background-size: 40px 40px;
+  background-size: var(--grid-px, 40px) var(--grid-px, 40px);
 }
 #drag-grid.show { display: block; }
 
@@ -819,6 +819,16 @@ html[data-theme="light"] .launcher-search { background: rgba(0,0,0,.06); border-
 }
 #tui-badge.show { display: flex; }
 #tui-badge .tui-hint { opacity: .45; }
+#broadcast-badge {
+  display: none; align-items: center; gap: 6px;
+  padding: 2px 8px 2px 7px; border-radius: 20px;
+  border: 1px solid rgba(176,122,240,.35); background: rgba(176,122,240,.1);
+  font-size: 9px; color: var(--purple); letter-spacing: .04em;
+  animation: fade-in .2s ease;
+}
+#broadcast-badge.show { display: flex; }
+#broadcast-badge button { background:none;border:none;color:rgba(176,122,240,.5);cursor:pointer;font-size:9px;padding:0 0 0 3px;line-height:1; }
+#broadcast-badge button:hover { color:var(--red); }
 
 /* ── Scrollbars ── */
 ::-webkit-scrollbar { width: 4px; height: 4px; }
@@ -840,6 +850,7 @@ html[data-theme="light"] .launcher-search { background: rgba(0,0,0,.06); border-
   <span id="health-badge" class="health-badge"></span>
   <span id="focus-badge">focus <button onclick="exitFocusMode()">✕</button></span>
   <span id="tui-badge">⌨ TUI <span class="tui-hint">Ctrl+\ to exit</span></span>
+  <span id="broadcast-badge">⎋ broadcast <button onclick="exitBroadcast()">✕</button></span>
   <span class="hdr-spacer"></span>
   <span class="ts" id="ts"></span>
   <button class="hdr-btn primary" onclick="toggleLauncher()">＋ open pane</button>
@@ -975,6 +986,8 @@ html[data-theme="light"] .launcher-search { background: rgba(0,0,0,.06); border-
           <b style="color:var(--text)">alt+shift+1–6</b> move window to WS<br>
           <b style="color:var(--text)">g</b> auto-tile · <b style="color:var(--text)">1–4</b> columns<br>
           <b style="color:var(--text)">f</b> toggle focus mode<br>
+          <b style="color:var(--text)">b</b> toggle broadcast<br>
+          <b style="color:var(--text)">v</b> fit view to windows<br>
           <b style="color:var(--text)">tab / shift+tab</b> cycle focus main<br>
           <b style="color:var(--text)">esc</b> close menus
         </div>
@@ -997,6 +1010,20 @@ html[data-theme="light"] .launcher-search { background: rgba(0,0,0,.06); border-
           <button class="size-btn" data-snap="24" onclick="applySnap(24)">24px</button>
           <button class="size-btn" data-snap="40" onclick="applySnap(40)">40px</button>
         </div>
+      </div>
+      <div class="setting-row">
+        <span class="setting-label">grid size</span>
+        <div class="size-btns" id="grid-btns">
+          <button class="size-btn" data-grid="0"   onclick="applyGridSize(0)">off</button>
+          <button class="size-btn" data-grid="20"  onclick="applyGridSize(20)">20</button>
+          <button class="size-btn active" data-grid="40"  onclick="applyGridSize(40)">40</button>
+          <button class="size-btn" data-grid="80"  onclick="applyGridSize(80)">80</button>
+          <button class="size-btn" data-grid="120" onclick="applyGridSize(120)">120</button>
+        </div>
+      </div>
+      <div class="setting-row">
+        <span class="setting-label">focus scroll</span>
+        <label class="sw"><input type="checkbox" id="focusscroll-toggle" checked onchange="applyFocusScroll(this.checked)"><div class="sw-track"></div><div class="sw-thumb"></div></label>
       </div>
     </div>
   </div>
@@ -1264,6 +1291,18 @@ function focusWin(wid) {
   el.style.zIndex = topZ;
   document.querySelectorAll('.fw').forEach(e => e.classList.remove('focused'));
   el.classList.add('focused');
+  if (scrollToFocused) {
+    const wrap = document.getElementById('desktop-wrap');
+    if (wrap && !win.min) {
+      const sl=wrap.scrollLeft, st=wrap.scrollTop, vw=wrap.clientWidth, vh=wrap.clientHeight;
+      const visible = win.x >= sl && win.y >= st && win.x+win.w <= sl+vw && win.y+win.h <= st+vh;
+      if (!visible) wrap.scrollTo({
+        left: Math.max(0, win.x - (vw - win.w) / 2),
+        top:  Math.max(0, win.y - (vh - win.h) / 2),
+        behavior: 'smooth'
+      });
+    }
+  }
   if (win.min) { win.min = false; el.classList.remove('minimized'); applyWinGeom(wid); }
   updateTaskbar();
 }
@@ -1326,10 +1365,17 @@ function expandDesktop() {
 // ── Snap ──────────────────────────────────────────────────────────────────────
 
 let SNAP = 14;
-const GRID = 40;
-const snapG = v => Math.round(v / GRID) * GRID;
+let GRID = 40;
+let gridSnap = true;
+let scrollToFocused = true;
+let broadcastMode = false;
+const snapG = v => (gridSnap && GRID) ? Math.round(v / GRID) * GRID : v;
 
-function showDragGrid() { document.getElementById('drag-grid')?.classList.add('show'); }
+function showDragGrid() {
+  if (!gridSnap || !GRID) return;
+  document.getElementById('drag-grid')?.classList.add('show');
+  document.documentElement.style.setProperty('--grid-px', GRID + 'px');
+}
 function hideDragGrid() { document.getElementById('drag-grid')?.classList.remove('show'); }
 
 function xEdges(excludeWid) {
@@ -2257,6 +2303,11 @@ function loadPrefs() {
   rowH = rh;
   document.querySelectorAll('#rh-btns .size-btn').forEach(b => b.classList.toggle('active', parseFloat(b.dataset.rh) === rh));
 
+  const grid = parseInt(localStorage.getItem('tmuxto-grid') ?? '40');
+  applyGridSize(grid);
+
+  const fscroll = localStorage.getItem('tmuxto-focusscroll');
+  if (fscroll === '0') { scrollToFocused = false; const t=document.getElementById('focusscroll-toggle'); if(t) t.checked=false; }
 }
 
 // ── Connection panel ──────────────────────────────────────────────────────────
@@ -2357,6 +2408,46 @@ document.addEventListener('mousedown', e => {
   if (tuiWid && !e.target.closest('#fw-' + tuiWid)) exitTuiMode();
 }, true);
 
+// ── Grid & view helpers ───────────────────────────────────────────────────────
+
+function applyGridSize(n) {
+  GRID = n; gridSnap = n > 0;
+  localStorage.setItem('tmuxto-grid', n);
+  document.querySelectorAll('#grid-btns .size-btn').forEach(b => b.classList.toggle('active', parseInt(b.dataset.grid) === n));
+}
+
+function applyFocusScroll(on) {
+  scrollToFocused = on;
+  localStorage.setItem('tmuxto-focusscroll', on ? '1' : '0');
+}
+
+function fitToView() {
+  const wrap = document.getElementById('desktop-wrap');
+  if (!wrap) return;
+  const ids = Object.keys(wins).filter(id => !wins[id].min && (wsMap[id]||1) === currentWS);
+  if (!ids.length) return;
+  let minX=Infinity, minY=Infinity, maxX=0, maxY=0;
+  for (const wid of ids) {
+    const w = wins[wid];
+    minX = Math.min(minX, w.x); minY = Math.min(minY, w.y);
+    maxX = Math.max(maxX, w.x + w.w); maxY = Math.max(maxY, w.y + w.h);
+  }
+  const pad = 24;
+  wrap.scrollTo({ left: Math.max(0, minX - pad), top: Math.max(0, minY - pad), behavior: 'smooth' });
+}
+
+// ── Broadcast mode ────────────────────────────────────────────────────────────
+
+function enterBroadcast() {
+  broadcastMode = true;
+  document.getElementById('broadcast-badge')?.classList.add('show');
+}
+
+function exitBroadcast() {
+  broadcastMode = false;
+  document.getElementById('broadcast-badge')?.classList.remove('show');
+}
+
 // ── Keyboard shortcuts ────────────────────────────────────────────────────────
 
 document.addEventListener('keydown', e => {
@@ -2372,12 +2463,14 @@ document.addEventListener('keydown', e => {
     } else {
       _tuiLastEsc = 0;
     }
-    const target = wins[tuiWid]?.target;
-    if (target) {
-      e.preventDefault();
-      e.stopPropagation();
-      const cmd = keyEventToTmux(e);
-      if (cmd) sendKeys(target, cmd.keys, cmd.literal);
+    e.preventDefault();
+    e.stopPropagation();
+    const cmd = keyEventToTmux(e);
+    if (cmd) {
+      const targets = broadcastMode
+        ? Object.entries(wins).filter(([id,w]) => !w.min && (wsMap[id]||1) === currentWS).map(([,w]) => w.target)
+        : [wins[tuiWid]?.target];
+      for (const t of targets.filter(Boolean)) sendKeys(t, cmd.keys, cmd.literal);
     }
     return;
   }
@@ -2416,6 +2509,8 @@ document.addEventListener('keydown', e => {
   if (e.key === '3') { tileLayout('3col'); return; }
   if (e.key === '4') { tileLayout('4col'); return; }
   if (e.key === 'f') { focusMode ? exitFocusMode() : tileLayout('focus'); return; }
+  if (e.key === 'b') { broadcastMode ? exitBroadcast() : enterBroadcast(); return; }
+  if (e.key === 'v') { fitToView(); return; }
   if (e.key === 'Escape') {
     document.getElementById('settings-panel')?.classList.remove('open');
     document.getElementById('settings-btn')?.classList.remove('active');
