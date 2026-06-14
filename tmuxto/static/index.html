@@ -248,12 +248,10 @@ html[data-theme="light"] .tb-item:hover { background: rgba(0,0,0,.09); }
     0 0 0 1px color-mix(in srgb, var(--sc,var(--blue)) 35%, transparent);
 }
 .fw.minimized .fw-body,
-.fw.minimized .fw-input,
 .fw.minimized .fw-status { display: none; }
 .fw.minimized { border-radius: 5px; animation: none; }
 body.compact .fw-bar { height: 22px !important; }
 body.compact .fw-ctrl { width: 9px !important; height: 9px !important; }
-body.compact .fw-input { height: 18px !important; }
 body.compact .fw-status { height: 12px !important; font-size: 7px !important; }
 
 /* Title bar */
@@ -365,26 +363,6 @@ body.nowrap .fw-body pre { white-space: pre; word-break: normal; overflow-x: aut
 .fw-fs-btn:hover { color: rgba(200,212,240,.9); }
 .fw-fs-val { font-size: 7px; color: rgba(140,150,180,.4); flex-shrink: 0; min-width: 18px; text-align: center; font-variant-numeric: tabular-nums; }
 html[data-theme="light"] .fw-status { background: #d0d4e0; color: rgba(60,70,100,.5); }
-
-/* Input row */
-.fw-input {
-  flex-shrink: 0; display: flex;
-  border-top: 1px solid rgba(255,255,255,.05);
-  height: 20px;
-  background: #070810;
-}
-.fw-input input {
-  flex: 1; background: transparent; border: none; outline: none;
-  color: var(--text); font-family: var(--font); font-size: var(--win-fs, var(--term-fs, 11px)); padding: 0 7px;
-}
-.fw-input input::placeholder { color: rgba(140,150,180,.3); }
-.fw-input button {
-  background: none; border: none; border-left: 1px solid rgba(255,255,255,.05);
-  color: rgba(140,150,180,.4); cursor: pointer; font-size: 9px; padding: 0 6px;
-  transition: color .1s, background .1s; font-family: var(--font);
-}
-.fw-input button:first-of-type:hover { color: var(--accent); background: rgba(63,214,140,.05); }
-.fw-input button:last-of-type:hover  { color: var(--red);    background: rgba(240,112,112,.05); }
 
 /* Resize handles */
 .fw-r { position: absolute; z-index: 30; user-select: none; }
@@ -711,7 +689,6 @@ html[data-theme="light"] .launcher-search { background: rgba(0,0,0,.06); border-
 .tile-custom button:hover { background: rgba(88,166,255,.22); border-color: rgba(88,166,255,.4); }
 
 /* ── Focus mode ── */
-.desktop.focus-mode .fw:not(.fw-main) .fw-input  { display: none; }
 .desktop.focus-mode .fw:not(.fw-main) .fw-status { height: 12px; font-size: 7px; }
 .desktop.focus-mode .fw:not(.fw-main) .fw-bar    { height: 22px; cursor: pointer; }
 .desktop.focus-mode .fw:not(.fw-main) .fw-bar:hover { background: rgba(88,166,255,.1) !important; }
@@ -744,7 +721,6 @@ html[data-theme="light"] .launcher-search { background: rgba(0,0,0,.06); border-
 .fw.tui-active { box-shadow: 0 0 0 1.5px rgba(63,214,140,.55), 0 8px 40px rgba(0,0,0,.7) !important; }
 .fw.tui-active .fw-bar { background: #0b1a10 !important; }
 .fw.tui-active .fw-body { cursor: text; }
-.fw.tui-active .fw-input { display: none !important; }
 #tui-badge {
   display: none; align-items: center; gap: 6px;
   padding: 2px 8px 2px 7px; border-radius: 20px;
@@ -1042,8 +1018,6 @@ const wins          = {};       // wid → { target, sessName, x, y, w, h, z, mi
 const targetToWin   = {};       // pane target → wid
 const lockedPanes   = new Set();
 const closedPanes   = new Set(); // targets user has dismissed — don't auto-reopen
-const paneHistory   = {};
-const paneHistIdx   = {};
 let   customLabels  = { sessions:{}, panes:{} };
 let   lastData      = null;
 let   lastTickMs    = null;
@@ -1116,13 +1090,8 @@ function createWin(target, pane, x, y, w, h) {
         <button class="fw-btn" onclick="openOverlay('${esc(target)}')" title="fullscreen">⤢</button>
       </div>
     </div>
-    <div class="fw-body" id="wbody-${wid}" onclick="enterTuiMode('${wid}')">
+    <div class="fw-body" id="wbody-${wid}">
       <pre id="wpre-${wid}">${pane ? ansiToHtml(pane.content) : ''}</pre>
-    </div>
-    <div class="fw-input">
-      <input placeholder="❯" onkeydown="winKey(event,'${esc(target)}','${wid}')" />
-      <button onclick="winSend(this,'${esc(target)}','${wid}')">↵</button>
-      <button onclick="sendCtrlC('${esc(target)}')">^C</button>
     </div>
     <div class="fw-status" id="wstatus-${wid}">
       <span class="fw-status-cmd">${esc(sessName)} · ${esc(cmd)}</span>
@@ -1140,7 +1109,11 @@ function createWin(target, pane, x, y, w, h) {
     <div class="fw-r sw" onmousedown="resizeWin(event,'${wid}','sw')"></div>
     <div class="fw-r w"  onmousedown="resizeWin(event,'${wid}','w')"></div>
     <div class="fw-r nw" onmousedown="resizeWin(event,'${wid}','nw')"></div>`;
-  el.addEventListener('mousedown', () => focusWin(wid));
+  el.addEventListener('mousedown', e => {
+    focusWin(wid);
+    // Enter TUI mode when clicking the body area (not the titlebar/controls/status)
+    if (e.target.closest('.fw-body')) enterTuiMode(wid);
+  });
   document.getElementById('desktop').appendChild(el);
   applyWinGeom(wid);
   requestAnimationFrame(() => {
@@ -1820,51 +1793,11 @@ function rebuildTitles() {
 
 // ── Command history ───────────────────────────────────────────────────────────
 
-function addToHistory(target, cmd) {
-  if (!paneHistory[target]) paneHistory[target] = [];
-  const h = paneHistory[target];
-  if (h[h.length-1] !== cmd) h.push(cmd);
-  if (h.length > 100) h.shift();
-  paneHistIdx[target] = h.length;
-}
-
-function winKey(e, target, wid) {
-  if (e.key === 'ArrowUp') {
-    e.preventDefault();
-    const h = paneHistory[target] || []; if (!h.length) return;
-    if (paneHistIdx[target] === undefined) paneHistIdx[target] = h.length;
-    paneHistIdx[target] = Math.max(0, paneHistIdx[target] - 1);
-    e.target.value = h[paneHistIdx[target]] || ''; return;
-  }
-  if (e.key === 'ArrowDown') {
-    e.preventDefault();
-    const h = paneHistory[target] || [];
-    if (paneHistIdx[target] === undefined) return;
-    paneHistIdx[target] = Math.min(h.length, paneHistIdx[target] + 1);
-    e.target.value = paneHistIdx[target] < h.length ? h[paneHistIdx[target]] : ''; return;
-  }
-  if (e.key === 'Enter') {
-    e.preventDefault();
-    const v = e.target.value;
-    if (v) { addToHistory(target, v); sendKeys(target, v, true); }
-    sendKeys(target, 'Enter', false);
-    e.target.value = '';
-    paneHistIdx[target] = (paneHistory[target]||[]).length;
-  }
-}
-
-async function winSend(btn, target, wid) {
-  const inp = btn.previousElementSibling;
-  if (inp.value) { addToHistory(target, inp.value); await sendKeys(target, inp.value, true); inp.value = ''; paneHistIdx[target] = (paneHistory[target]||[]).length; }
-  sendKeys(target, 'Enter', false);
-}
-
 // ── API ───────────────────────────────────────────────────────────────────────
 
 async function sendKeys(target, keys, literal) {
   await fetch('/api/send-keys', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({target,keys,literal}) });
 }
-async function sendCtrlC(t) { sendKeys(t,'C-c',false); }
 
 async function fitPane(target) {
   if (!autoFit) return;
@@ -2201,11 +2134,7 @@ document.addEventListener('keydown', e => {
       e.preventDefault();
       e.stopPropagation();
       const cmd = keyEventToTmux(e);
-      if (cmd) fetch('/api/send-keys', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ target, keys: cmd.keys, literal: cmd.literal })
-      });
+      if (cmd) sendKeys(target, cmd.keys, cmd.literal);
     }
     return;
   }
