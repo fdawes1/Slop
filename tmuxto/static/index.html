@@ -166,19 +166,24 @@ html[data-theme="light"] .hdr-btn { background: rgba(0,0,0,.04); border-color: r
 html[data-theme="light"] .hdr-btn:hover { background: rgba(0,0,0,.07); color: var(--text); border-color: rgba(0,0,0,.18); }
 
 /* ── Desktop ── */
-#desktop {
-  flex: 1; min-height: 0;
-  position: relative; overflow: hidden;
+#desktop-wrap {
+  flex: 1; min-height: 0; overflow: auto;
   background: var(--bg);
   background-image:
     radial-gradient(ellipse 70% 50% at 15% 0%,  rgba(88,166,255,.05) 0%, transparent 70%),
     radial-gradient(ellipse 50% 40% at 85% 100%, rgba(63,214,140,.04) 0%, transparent 70%),
     radial-gradient(circle, rgba(255,255,255,.035) 1px, transparent 1px);
   background-size: auto, auto, 28px 28px;
+  background-attachment: local;
 }
-html[data-theme="light"] #desktop {
+html[data-theme="light"] #desktop-wrap {
   background-image: radial-gradient(circle, rgba(0,0,0,.06) 1px, transparent 1px);
   background-size: 28px 28px;
+}
+#desktop {
+  position: relative;
+  min-width: 100%;
+  min-height: 100%;
 }
 
 /* ── Taskbar ── */
@@ -947,7 +952,7 @@ html[data-theme="light"] .launcher-search { background: rgba(0,0,0,.06); border-
   </div>
 </header>
 
-<div id="desktop"></div>
+<div id="desktop-wrap"><div id="desktop"></div></div>
 
 <div id="taskbar">
   <div id="ws-bar"></div>
@@ -1180,6 +1185,7 @@ function createWin(target, pane, x, y, w, h) {
   });
   updateTaskbar();
   saveLayout();
+  expandDesktop();
 }
 
 function closeWin(wid, silent=false) {
@@ -1245,20 +1251,40 @@ function applyWinGeom(wid) {
   }
 }
 
+// ── Canvas helpers ────────────────────────────────────────────────────────────
+
+function deskViewport() {
+  const wrap = document.getElementById('desktop-wrap');
+  return { w: wrap?.clientWidth || 800, h: wrap?.clientHeight || 600 };
+}
+
+function expandDesktop() {
+  const desk = document.getElementById('desktop');
+  const wrap = document.getElementById('desktop-wrap');
+  if (!desk || !wrap) return;
+  const pad = 160;
+  let maxX = wrap.clientWidth, maxY = wrap.clientHeight;
+  for (const [wid, w] of Object.entries(wins)) {
+    if (w.min || (wsMap[wid]||1) !== currentWS) continue;
+    maxX = Math.max(maxX, w.x + w.w + pad);
+    maxY = Math.max(maxY, w.y + w.h + pad);
+  }
+  desk.style.width  = maxX + 'px';
+  desk.style.height = maxY + 'px';
+}
+
 // ── Snap ──────────────────────────────────────────────────────────────────────
 
 let SNAP = 14;
 
 function xEdges(excludeWid) {
-  const desk = document.getElementById('desktop');
-  const es = [0, desk.clientWidth];
+  const es = [0];
   for (const [id, w] of Object.entries(wins))
     if (id !== excludeWid && !w.min && !w.max) es.push(w.x, w.x + w.w);
   return es;
 }
 function yEdges(excludeWid) {
-  const desk = document.getElementById('desktop');
-  const es = [0, desk.clientHeight];
+  const es = [0];
   for (const [id, w] of Object.entries(wins))
     if (id !== excludeWid && !w.min && !w.max) es.push(w.y, w.y + w.h);
   return es;
@@ -1322,17 +1348,19 @@ function dragWin(e, wid) {
     return;
   }
   focusWin(wid);
-  const offX = e.clientX - win.x, offY = e.clientY - win.y;
+  const wrap = document.getElementById('desktop-wrap');
+  const wr = wrap.getBoundingClientRect();
+  const offX = (e.clientX - wr.left + wrap.scrollLeft) - win.x;
+  const offY = (e.clientY - wr.top  + wrap.scrollTop)  - win.y;
   document.body.style.userSelect = 'none';
-  const desk = document.getElementById('desktop');
 
   const move = e => {
-    const r = desk.getBoundingClientRect();
-    const rawX = Math.max(0, Math.min(r.width  - 60,  e.clientX - offX));
-    const rawY = Math.max(0, Math.min(r.height - 26, e.clientY - offY));
+    const rawX = Math.max(0, (e.clientX - wr.left + wrap.scrollLeft) - offX);
+    const rawY = Math.max(0, (e.clientY - wr.top  + wrap.scrollTop)  - offY);
     const { x, y } = snapPos(wid, rawX, rawY);
     win.x = x; win.y = y;
     applyWinGeom(wid);
+    expandDesktop();
   };
   const up = () => {
     document.body.style.userSelect = '';
@@ -1365,6 +1393,7 @@ function resizeWin(e, wid, dir) {
     if (dir.includes('n')) { const raw=y+dy; ny=snapVal(raw,ye); nh=Math.max(80, y+h-ny); }
     win.x=nx; win.y=ny; win.w=nw; win.h=nh;
     applyWinGeom(wid);
+    expandDesktop();
   };
   const up = () => {
     document.body.style.userSelect = '';
@@ -1395,13 +1424,11 @@ function updateWinContent(wid, content) {
 
 function tileLayout(mode) {
   closeTileMenu();
-  const desk = document.getElementById('desktop');
-  const r = desk.getBoundingClientRect();
   const ids = Object.keys(wins).filter(id => !wins[id].min && (wsMap[id]||1) === currentWS);
   if (!ids.length) return;
   const n = ids.length;
   const gap = 4;
-  const DW = r.width, DH = r.height;
+  const { w: DW, h: DH } = deskViewport();
 
   const place = (wid, x, y, w, h) => {
     wins[wid].max = false; wins[wid].x = x; wins[wid].y = y;
@@ -1461,19 +1488,19 @@ function tileLayout(mode) {
     place(wid, gap + c * (W + gap), gap + row * (H + gap), W, H);
   });
   saveLayout();
+  expandDesktop();
   requestAnimationFrame(() => { for (const wid of ids) fitPane(wins[wid]?.target); });
 }
 
 function initAutoLayout(panes) {
-  const desk = document.getElementById('desktop');
-  const r = desk.getBoundingClientRect();
+  const { w, h } = deskViewport();
   const n = panes.length;
   if (!n) return;
   const cols = Math.ceil(Math.sqrt(n));
   const rows = Math.ceil(n / cols);
   const gap = 4;
-  const W = Math.floor((r.width  - gap * (cols + 1)) / cols);
-  const H = Math.floor((r.height - gap * (rows + 1)) / rows);
+  const W = Math.floor((w - gap * (cols + 1)) / cols);
+  const H = Math.floor((h - gap * (rows + 1)) / rows);
   panes.forEach((p, i) => {
     const col = i % cols, row = Math.floor(i / cols);
     const x = gap + col * (W + gap);
@@ -1564,10 +1591,9 @@ function tick(data) {
     // New panes since last tick
     for (const p of allPanes) {
       if (!targetToWin[p.target] && !closedPanes.has(p.target)) {
-        const desk = document.getElementById('desktop');
-        const r = desk.getBoundingClientRect();
-        const x = Math.random() * Math.max(0, r.width  - defW);
-        const y = Math.random() * Math.max(0, r.height - defH);
+        const { w: vw, h: vh } = deskViewport();
+        const x = Math.random() * Math.max(0, vw - defW);
+        const y = Math.random() * Math.max(0, vh - defH);
         createWin(p.target, p, Math.round(x), Math.round(y), defW, defH);
       }
     }
@@ -1673,11 +1699,10 @@ function openWin(target) {
   if (!lastData) return;
   for (const s of lastData) for (const w of s.windows) for (const p of w.panes)
     if (p.target === target) {
-      const desk = document.getElementById('desktop');
-      const r = desk.getBoundingClientRect();
+      const { w: vw, h: vh } = deskViewport();
       const x = 40 + Object.keys(wins).length * 20;
       const y = 40 + Object.keys(wins).length * 20;
-      createWin(target, p, x % (r.width - defW), y % (r.height - defH), defW, defH);
+      createWin(target, p, x % Math.max(defW, vw - defW), y % Math.max(defH, vh - defH), defW, defH);
       updateLauncher();
       return;
     }
@@ -1704,15 +1729,14 @@ function closeAllWins() {
 // ── Focus mode functions ──────────────────────────────────────────────────────
 
 function enterFocusMode(mainWid) {
-  const desk = document.getElementById('desktop');
-  const r = desk.getBoundingClientRect();
   const ids = Object.keys(wins).filter(id => !wins[id].min && (wsMap[id]||1) === currentWS);
   if (!ids.length) return;
   if (!ids.includes(mainWid)) mainWid = ids[0];
 
   focusMode = true; focusMainWid = mainWid;
 
-  const gap = 4, DW = r.width, DH = r.height;
+  const { w: DW, h: DH } = deskViewport();
+  const gap = 4;
   const sidebarCount = ids.length - 1;
   // Adaptive sidebar width — tighter with more panels
   const SW = sidebarCount === 0 ? 0
@@ -1799,6 +1823,7 @@ function switchWS(n) {
   }
   updateTaskbar();
   saveLayout();
+  expandDesktop();
 }
 
 function moveWinToWS(wid, n) {
@@ -2308,7 +2333,7 @@ setInterval(updateHealth, 1000);
     clearTimeout(_deskFitTimer);
     _deskFitTimer = setTimeout(fitAllVisible, 300);
   });
-  _deskObs.observe(document.getElementById('desktop'));
+  _deskObs.observe(document.getElementById('desktop-wrap'));
 }
 
 (async () => {
