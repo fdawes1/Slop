@@ -326,9 +326,6 @@ html[data-theme="light"] .fw-cmd   { color: rgba(20,30,60,.8); }
   line-height: 1; font-family: var(--font);
 }
 .fw-btn:hover { color: rgba(200,212,240,.9); background: rgba(255,255,255,.06); }
-.fw-btn.lock-btn { opacity: .8; }
-.fw-btn.lock-btn.locked { color: var(--yellow) !important; }
-.fw-btn.fit-btn:hover { color: var(--cyan) !important; }
 .fw-bar-right .fw-btn:last-child:hover { color: var(--red) !important; }
 
 /* Window body */
@@ -358,8 +355,6 @@ body.nowrap .fw-body pre { white-space: pre; word-break: normal; overflow-x: aut
   user-select: none;
 }
 .fw-status-cmd { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; }
-.fw-status-lock { color: var(--yellow); display: none; }
-.fw-status-lock.on { display: inline; }
 .fw-status-dims { flex-shrink: 0; font-variant-numeric: tabular-nums; color: rgba(140,150,180,.4); }
 .fw-status-sep { color: rgba(140,150,180,.2); flex-shrink: 0; }
 .fw-fs-btn {
@@ -715,10 +710,6 @@ html[data-theme="light"] .launcher-search { background: rgba(0,0,0,.06); border-
 }
 .tile-custom button:hover { background: rgba(88,166,255,.22); border-color: rgba(88,166,255,.4); }
 
-/* WS move buttons in window bar (shown on right-click or hover) */
-.ws-move-btn { font-size: 7px; color: rgba(180,190,220,.3); }
-.ws-move-btn:hover { color: var(--blue) !important; }
-
 /* ── Focus mode ── */
 .desktop.focus-mode .fw:not(.fw-main) .fw-input  { display: none; }
 .desktop.focus-mode .fw:not(.fw-main) .fw-status { height: 12px; font-size: 7px; }
@@ -919,14 +910,6 @@ html[data-theme="light"] .launcher-search { background: rgba(0,0,0,.06); border-
           <button class="size-btn active" data-snap="14" onclick="applySnap(14)">14px</button>
           <button class="size-btn" data-snap="24" onclick="applySnap(24)">24px</button>
           <button class="size-btn" data-snap="40" onclick="applySnap(40)">40px</button>
-        </div>
-      </div>
-      <div class="setting-row">
-        <span class="setting-label">new pane</span>
-        <div class="size-btns" id="np-btns">
-          <button class="size-btn active" data-np="cascade" onclick="applyNewPane('cascade')">cascade</button>
-          <button class="size-btn" data-np="random"  onclick="applyNewPane('random')">random</button>
-          <button class="size-btn" data-np="tile"    onclick="applyNewPane('tile')">tile</button>
         </div>
       </div>
     </div>
@@ -1131,7 +1114,6 @@ function createWin(target, pane, x, y, w, h) {
         <button class="fw-btn focus-promote" onclick="enterFocusMode('${wid}')" title="promote to focus (click title bar)">◎</button>
         <button class="fw-btn focus-cycle"   onclick="cycleFocusMain(false)"    title="cycle focus →  (Tab)">↻</button>
         <button class="fw-btn" onclick="openOverlay('${esc(target)}')" title="fullscreen">⤢</button>
-        <button class="fw-btn" onclick="closeWin('${wid}')" title="close">✕</button>
       </div>
     </div>
     <div class="fw-body" id="wbody-${wid}" onclick="enterTuiMode('${wid}')">
@@ -1453,8 +1435,6 @@ function tileLayout(mode) {
   saveLayout();
   requestAnimationFrame(() => { for (const wid of ids) fitPane(wins[wid]?.target); });
 }
-
-function autoTile() { tileLayout('auto'); }
 
 function initAutoLayout(panes) {
   const desk = document.getElementById('desktop');
@@ -1804,20 +1784,6 @@ function moveWinToWS(wid, n) {
 
 // ── Scroll lock ───────────────────────────────────────────────────────────────
 
-function toggleScrollLock(target) {
-  if (lockedPanes.has(target)) lockedPanes.delete(target);
-  else lockedPanes.add(target);
-  const locked = lockedPanes.has(target);
-  document.querySelectorAll(`.lock-btn[data-target="${CSS.escape(target)}"]`).forEach(btn => {
-    btn.classList.toggle('locked', locked);
-  });
-  const wid = targetToWin[target];
-  if (wid) {
-    const lockEl = document.getElementById('wlock-' + wid);
-    if (lockEl) lockEl.classList.toggle('on', locked);
-  }
-}
-
 // ── Labels ────────────────────────────────────────────────────────────────────
 
 function editSessLabel(name) {
@@ -2067,11 +2033,6 @@ function applyRowH(h) {
   localStorage.setItem('tmuxto-rh', h);
   document.querySelectorAll('#rh-btns .size-btn').forEach(b => b.classList.toggle('active', parseFloat(b.dataset.rh) === h));
 }
-function applyNewPane(mode) {
-  localStorage.setItem('tmuxto-newpane', mode);
-  document.querySelectorAll('#np-btns .size-btn').forEach(b => b.classList.toggle('active', b.dataset.np === mode));
-}
-
 function applyTheme(light) {
   document.documentElement.dataset.theme = light ? 'light' : 'dark';
   localStorage.setItem('tmuxto-theme', light?'light':'dark');
@@ -2120,8 +2081,6 @@ function loadPrefs() {
   rowH = rh;
   document.querySelectorAll('#rh-btns .size-btn').forEach(b => b.classList.toggle('active', parseFloat(b.dataset.rh) === rh));
 
-  const np = localStorage.getItem('tmuxto-newpane')||'cascade';
-  document.querySelectorAll('#np-btns .size-btn').forEach(b => b.classList.toggle('active', b.dataset.np === np));
 }
 
 // ── Connection panel ──────────────────────────────────────────────────────────
