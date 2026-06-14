@@ -1130,9 +1130,6 @@ function createWin(target, pane, x, y, w, h) {
       <div class="fw-bar-right">
         <button class="fw-btn focus-promote" onclick="enterFocusMode('${wid}')" title="promote to focus (click title bar)">◎</button>
         <button class="fw-btn focus-cycle"   onclick="cycleFocusMain(false)"    title="cycle focus →  (Tab)">↻</button>
-        <button class="fw-btn lock-btn ${lockedPanes.has(target)?'locked':''}" data-target="${esc(target)}"
-                onclick="toggleScrollLock('${esc(target)}')" title="scroll lock">⏸</button>
-        <button class="fw-btn fit-btn" onclick="fitPane('${esc(target)}')" title="resize tmux pane to fit">⇔</button>
         <button class="fw-btn" onclick="openOverlay('${esc(target)}')" title="fullscreen">⤢</button>
         <button class="fw-btn" onclick="closeWin('${wid}')" title="close">✕</button>
       </div>
@@ -1147,8 +1144,6 @@ function createWin(target, pane, x, y, w, h) {
     </div>
     <div class="fw-status" id="wstatus-${wid}">
       <span class="fw-status-cmd">${esc(sessName)} · ${esc(cmd)}</span>
-      <span class="fw-status-lock ${lockedPanes.has(target)?'on':''}" id="wlock-${wid}">∥</span>
-      <span class="fw-status-sep">·</span>
       <button class="fw-fs-btn" onclick="changeWinFs('${wid}',-1)" title="decrease font size">−</button>
       <span class="fw-fs-val" id="wfs-${wid}">11px</span>
       <button class="fw-fs-btn" onclick="changeWinFs('${wid}',+1)" title="increase font size">+</button>
