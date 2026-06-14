@@ -1182,8 +1182,9 @@ let focusMode    = false;
 let focusMainWid = null;
 
 // ── TUI interactive mode ──────────────────────────────────────────────────────
-let tuiWid      = null;
-let _tuiLastEsc = 0;
+let tuiWid           = null;
+let _tuiLastEsc      = 0;
+let _tuiMouseHandlers = null;
 
 const newWid = () => 'w' + (++_wc);
 
@@ -1248,8 +1249,7 @@ function createWin(target, pane, x, y, w, h) {
     <div class="fw-r nw" onmousedown="resizeWin(event,'${wid}','nw')"></div>`;
   el.addEventListener('mousedown', e => {
     focusWin(wid);
-    // Enter TUI mode when clicking the body area (not the titlebar/controls/status)
-    if (e.target.closest('.fw-body')) enterTuiMode(wid);
+    if (e.target.closest('.fw-body') && tuiWid !== wid) enterTuiMode(wid);
   });
   document.getElementById('desktop').appendChild(el);
   applyWinGeom(wid);
@@ -2364,6 +2364,25 @@ async function doConnect() {
 
 // ── TUI interactive mode ─────────────────────────────────────────────────────
 
+function tuiMouseCoords(e, wid) {
+  const body = document.getElementById('wbody-' + wid);
+  if (!body) return { col: 1, row: 1 };
+  const globalFs = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--term-fs')) || 11;
+  const fs = winFs[wid] || globalFs;
+  const scale = fs / 11;
+  const rect = body.getBoundingClientRect();
+  const col = Math.max(1, Math.floor((e.clientX - rect.left)  / (charW * scale)) + 1);
+  const row = Math.max(1, Math.floor((e.clientY - rect.top) / (rowH  * scale)) + 1);
+  return { col, row };
+}
+
+function sendTuiMouseEvent(e, wid, button, press) {
+  const target = wins[wid]?.target; if (!target) return;
+  const { col, row } = tuiMouseCoords(e, wid);
+  // SGR mouse escape sequence: \x1b[<btn;col;rowM (press) / m (release)
+  sendKeys(target, `\x1b[<${button};${col};${row}${press ? 'M' : 'm'}`, true);
+}
+
 function enterTuiMode(wid) {
   if (!wins[wid]) return;
   if (tuiWid === wid) return;
@@ -2373,11 +2392,34 @@ function enterTuiMode(wid) {
   document.getElementById('fw-' + wid)?.classList.add('tui-active');
   document.getElementById('tui-badge')?.classList.add('show');
   focusWin(wid);
+
+  const body = document.getElementById('wbody-' + wid);
+  if (body) {
+    const onDown  = e => { e.preventDefault(); e.stopPropagation(); sendTuiMouseEvent(e, wid, 0, true); };
+    const onUp    = e => { e.preventDefault(); sendTuiMouseEvent(e, wid, 0, false); };
+    const onWheel = e => {
+      e.preventDefault();
+      const { col, row } = tuiMouseCoords(e, wid);
+      const btn = e.deltaY < 0 ? 64 : 65;
+      sendKeys(wins[wid]?.target, `\x1b[<${btn};${col};${row}M`, true);
+    };
+    body.addEventListener('mousedown', onDown);
+    body.addEventListener('mouseup',   onUp);
+    body.addEventListener('wheel',     onWheel, { passive: false });
+    _tuiMouseHandlers = { body, onDown, onUp, onWheel };
+  }
 }
 
 function exitTuiMode() {
   if (!tuiWid) return;
   document.getElementById('fw-' + tuiWid)?.classList.remove('tui-active');
+  if (_tuiMouseHandlers) {
+    const { body, onDown, onUp, onWheel } = _tuiMouseHandlers;
+    body.removeEventListener('mousedown', onDown);
+    body.removeEventListener('mouseup',   onUp);
+    body.removeEventListener('wheel',     onWheel);
+    _tuiMouseHandlers = null;
+  }
   tuiWid = null;
   _tuiLastEsc = 0;
   document.getElementById('tui-badge')?.classList.remove('show');
