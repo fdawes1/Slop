@@ -1058,6 +1058,7 @@ function sessionColor(name) {
 const wins          = {};       // wid → { target, sessName, x, y, w, h, z, min, max }
 const targetToWin   = {};       // pane target → wid
 const lockedPanes   = new Set();
+const closedPanes   = new Set(); // targets user has dismissed — don't auto-reopen
 const paneHistory   = {};
 const paneHistIdx   = {};
 let   customLabels  = { sessions:{}, panes:{} };
@@ -1180,6 +1181,7 @@ function closeWin(wid, silent=false) {
   const win = wins[wid]; if (!win) return;
   if (tuiWid === wid) exitTuiMode();
   const wasFocusMain = focusMode && wid === focusMainWid;
+  if (!silent) closedPanes.add(win.target);
   delete targetToWin[win.target];
   delete wins[wid];
   delete wsMap[wid];
@@ -1496,6 +1498,9 @@ function tick(data) {
     for (const w of s.windows)
       for (const p of w.panes) { paneMap[p.target] = p; allPanes.push(p); }
 
+  // Prune closedPanes: if tmux pane is gone, clear its dismissal so future panes at that target auto-open
+  for (const t of [...closedPanes]) { if (!paneMap[t]) closedPanes.delete(t); }
+
   // Update open windows
   for (const [wid, win] of Object.entries(wins)) {
     const p = paneMap[win.target];
@@ -1539,7 +1544,7 @@ function tick(data) {
       }
     }
     // Open remaining panes not in saved layout
-    const unopened = allPanes.filter(p => !targetToWin[p.target]);
+    const unopened = allPanes.filter(p => !targetToWin[p.target] && !closedPanes.has(p.target));
     if (!restored && unopened.length) {
       initAutoLayout(unopened);
     } else {
@@ -1555,7 +1560,7 @@ function tick(data) {
   } else {
     // New panes since last tick
     for (const p of allPanes) {
-      if (!targetToWin[p.target]) {
+      if (!targetToWin[p.target] && !closedPanes.has(p.target)) {
         const desk = document.getElementById('desktop');
         const r = desk.getBoundingClientRect();
         const x = Math.random() * Math.max(0, r.width  - defW);
