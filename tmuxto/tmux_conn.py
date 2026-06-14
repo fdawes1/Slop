@@ -210,6 +210,12 @@ class TmuxConn:
     def resize_pane(self, target: str, width: int, height: int) -> None:
         self._run("resize-pane", "-t", target, "-x", str(width), "-y", str(height))
 
+    def new_session(self, name: str) -> None:
+        self._run("new-session", "-d", "-s", name)
+
+    def kill_session(self, name: str) -> None:
+        self._run("kill-session", "-t", name)
+
     # ── Reconnect for SSH ─────────────────────────────────────────────────────
 
     def _reconnect(self) -> None:

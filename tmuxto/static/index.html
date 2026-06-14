@@ -508,6 +508,51 @@ html[data-theme="light"] #settings-panel { background:rgba(236,240,250,.97); }
 }
 .setting-section-hd:first-child { border-top: none; }
 
+/* ── Sessions panel ── */
+#sessions-wrap { position:relative; }
+#sessions-panel {
+  display:none; position:absolute; top:calc(100% + 6px); right:0;
+  background:rgba(6,7,12,.96); backdrop-filter:blur(40px) saturate(1.5);
+  -webkit-backdrop-filter:blur(40px) saturate(1.5);
+  border:1px solid rgba(255,255,255,.1); border-radius:10px;
+  padding:6px 0; min-width:260px; z-index:9500;
+  box-shadow:0 2px 8px rgba(0,0,0,.4),0 16px 48px rgba(0,0,0,.7),0 0 0 .5px rgba(255,255,255,.04) inset;
+  animation: fw-in .16s cubic-bezier(.22,.68,0,1.1) both;
+}
+#sessions-panel.open { display:block; }
+.sess-row {
+  display:flex; align-items:center; gap:8px;
+  padding:6px 12px; font-size:10px; color:var(--text);
+  border-bottom:1px solid var(--border);
+}
+.sess-row:last-child { border-bottom:none; }
+.sess-dot { width:6px; height:6px; border-radius:50%; flex-shrink:0; }
+.sess-name { flex:1; font-family:var(--font); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.sess-meta { font-size:9px; color:var(--dim); flex-shrink:0; }
+.sess-kill {
+  background:none; border:1px solid rgba(240,112,112,.2); border-radius:3px;
+  color:rgba(240,112,112,.5); font-size:9px; cursor:pointer; padding:1px 5px;
+  transition:all .12s; flex-shrink:0;
+}
+.sess-kill:hover { background:rgba(240,112,112,.1); border-color:rgba(240,112,112,.5); color:var(--red); }
+.sess-new {
+  display:flex; align-items:center; gap:6px; padding:8px 12px; border-top:1px solid var(--border);
+}
+.sess-new input {
+  flex:1; background:rgba(255,255,255,.05); border:1px solid rgba(255,255,255,.1);
+  border-radius:4px; color:var(--text); font-family:var(--font); font-size:10px;
+  padding:3px 7px; outline:none;
+}
+.sess-new input:focus { border-color:rgba(88,166,255,.4); }
+.sess-new input::placeholder { color:var(--dim); }
+.sess-new button {
+  background:rgba(63,214,140,.1); border:1px solid rgba(63,214,140,.25); border-radius:4px;
+  color:var(--accent); font-size:10px; cursor:pointer; padding:3px 8px; white-space:nowrap;
+  transition:all .12s;
+}
+.sess-new button:hover { background:rgba(63,214,140,.18); border-color:rgba(63,214,140,.45); }
+#sess-empty { padding:10px 14px; font-size:10px; color:var(--dim); text-align:center; }
+
 /* ── Connection panel ── */
 #conn-panel {
   display:none;position:fixed;inset:0;z-index:9900;
@@ -754,6 +799,16 @@ html[data-theme="light"] .launcher-search { background: rgba(0,0,0,.06); border-
   <span class="hdr-spacer"></span>
   <span class="ts" id="ts"></span>
   <button class="hdr-btn primary" onclick="toggleLauncher()">＋ open pane</button>
+  <div id="sessions-wrap">
+    <button class="hdr-btn" id="sessions-btn" onclick="toggleSessionsPanel()">⊟ sessions</button>
+    <div id="sessions-panel">
+      <div id="sess-list"></div>
+      <div class="sess-new">
+        <input id="sess-name-input" placeholder="session name" onkeydown="if(event.key==='Enter')launchSession()" />
+        <button onclick="launchSession()">＋ launch</button>
+      </div>
+    </div>
+  </div>
   <div class="tile-wrap">
     <button class="hdr-btn" id="tile-btn" onclick="toggleTileMenu()">⊞ tile</button>
     <div id="tile-menu">
@@ -1895,6 +1950,47 @@ function updateHealth() {
 
 // ── Settings ──────────────────────────────────────────────────────────────────
 
+// ── Sessions panel ────────────────────────────────────────────────────────────
+
+function toggleSessionsPanel() {
+  const p=document.getElementById('sessions-panel'),b=document.getElementById('sessions-btn');
+  const open=p.classList.toggle('open'); b.classList.toggle('active',open);
+  if (open) renderSessionsList();
+}
+
+function renderSessionsList() {
+  const list = document.getElementById('sess-list');
+  if (!list) return;
+  const sessions = lastData || [];
+  if (!sessions.length) { list.innerHTML = '<div id="sess-empty">no sessions</div>'; return; }
+  const colors = ['var(--accent)','var(--blue)','var(--purple)','var(--cyan)','var(--yellow)','var(--red)'];
+  list.innerHTML = sessions.map((s, i) => {
+    const panes = s.windows.reduce((n, w) => n + w.panes.length, 0);
+    const col = colors[i % colors.length];
+    return `<div class="sess-row">
+      <div class="sess-dot" style="background:${col}"></div>
+      <span class="sess-name">${esc(s.name)}</span>
+      <span class="sess-meta">${s.windows.length}w ${panes}p</span>
+      <button class="sess-kill" onclick="killSession('${esc(s.name)}')">kill</button>
+    </div>`;
+  }).join('');
+}
+
+async function killSession(name) {
+  if (!confirm(`Kill session "${name}"?`)) return;
+  await fetch('/api/kill-session', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({name}) });
+  renderSessionsList();
+}
+
+async function launchSession() {
+  const inp = document.getElementById('sess-name-input');
+  const name = inp.value.trim();
+  if (!name) return;
+  await fetch('/api/new-session', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({name}) });
+  inp.value = '';
+  renderSessionsList();
+}
+
 function toggleSettings() {
   const p=document.getElementById('settings-panel'),b=document.getElementById('settings-btn');
   const open=p.classList.toggle('open'); b.classList.toggle('active',open);
@@ -1910,6 +2006,8 @@ function closeTileMenu() {
 document.addEventListener('click', e => {
   const sw=document.querySelector('.settings-wrap');
   if (sw&&!sw.contains(e.target)) { document.getElementById('settings-panel').classList.remove('open'); document.getElementById('settings-btn').classList.remove('active'); }
+  const ssw=document.getElementById('sessions-wrap');
+  if (ssw&&!ssw.contains(e.target)) { document.getElementById('sessions-panel').classList.remove('open'); document.getElementById('sessions-btn').classList.remove('active'); }
   const tw=document.querySelector('.tile-wrap');
   if (tw&&!tw.contains(e.target)) closeTileMenu();
   if (!document.getElementById('launcher').contains(e.target)&&!e.target.closest('[onclick*="toggleLauncher"]'))
@@ -2176,6 +2274,8 @@ document.addEventListener('keydown', e => {
   if (e.key === 'Escape') {
     document.getElementById('settings-panel')?.classList.remove('open');
     document.getElementById('settings-btn')?.classList.remove('active');
+    document.getElementById('sessions-panel')?.classList.remove('open');
+    document.getElementById('sessions-btn')?.classList.remove('active');
     document.getElementById('tile-menu')?.classList.remove('open');
     document.getElementById('tile-btn')?.classList.remove('active');
     document.getElementById('launcher')?.classList.remove('open');

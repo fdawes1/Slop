@@ -65,6 +65,10 @@ class ResizePaneRequest(BaseModel):
     height: int
 
 
+class SessionRequest(BaseModel):
+    name: str
+
+
 # ── Endpoints ─────────────────────────────────────────────────────────────────
 
 @app.post("/api/connect")
@@ -166,6 +170,25 @@ def api_kill_window(req: KillRequest):
     if not conn.connected:
         return JSONResponse({"success": False, "error": "not connected"}, 400)
     conn.kill_window(req.target)
+    return {"success": True}
+
+
+@app.post("/api/new-session")
+def api_new_session(req: SessionRequest):
+    if not conn.connected:
+        return JSONResponse({"success": False, "error": "not connected"}, 400)
+    name = req.name.strip()
+    if not name:
+        return JSONResponse({"success": False, "error": "name required"}, 400)
+    conn.new_session(name)
+    return {"success": True}
+
+
+@app.post("/api/kill-session")
+def api_kill_session(req: SessionRequest):
+    if not conn.connected:
+        return JSONResponse({"success": False, "error": "not connected"}, 400)
+    conn.kill_session(req.name)
     return {"success": True}
 
 
