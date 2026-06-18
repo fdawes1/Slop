@@ -347,14 +347,34 @@ function update() {
             }
         }
 
-        // 4. Obstacle repulsion
+        // 4. Obstacle repulsion + tangential steering
         for (const obs of obstacles) {
             const dx = r.x-obs.x, dy = r.y-obs.y;
             const d = Math.sqrt(dx*dx+dy*dy) || 0.001;
-            const sd = obs.r + 34;
+            const sd = obs.r + 56;
             if (d < sd) {
-                const f = ((sd-d)/sd) * 4.2;
-                fx += (dx/d)*f; fy += (dy/d)*f;
+                const t = (sd - d) / sd; // 1 at centre, 0 at edge
+
+                // Radial push (away from obstacle)
+                const radial = t * t * 22;
+                fx += (dx/d)*radial; fy += (dy/d)*radial;
+
+                // Tangential steering: when heading toward the obstacle, deflect
+                // sideways rather than just braking
+                const spd2 = Math.sqrt(r.vx*r.vx + r.vy*r.vy) || 0.001;
+                const toObsX = -dx/d, toObsY = -dy/d; // unit vec toward obstacle
+                const dot = (r.vx/spd2)*toObsX + (r.vy/spd2)*toObsY;
+                if (dot > 0) { // robot is heading toward obstacle
+                    // Two perpendicular options; pick the one more aligned with current motion
+                    const p1x = -toObsY, p1y =  toObsX;
+                    const p2x =  toObsY, p2y = -toObsX;
+                    const align1 = (r.vx/spd2)*p1x + (r.vy/spd2)*p1y;
+                    const align2 = (r.vx/spd2)*p2x + (r.vy/spd2)*p2y;
+                    const px = align1 > align2 ? p1x : p2x;
+                    const py = align1 > align2 ? p1y : p2y;
+                    const steer = t * dot * 14;
+                    fx += px*steer; fy += py*steer;
+                }
             }
         }
 
