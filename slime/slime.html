@@ -1,0 +1,439 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>Slime Growth Simulator</title>
+<style>
+* { box-sizing:border-box; margin:0; padding:0; }
+body { font-family:'Courier New',monospace; background:#070707; color:#bbb; padding:14px; display:flex; flex-direction:column; align-items:center; }
+h1 { font-size:0.88em; letter-spacing:0.22em; color:#444; text-transform:uppercase; margin-bottom:11px; }
+.wrap { display:flex; gap:12px; align-items:flex-start; }
+canvas { display:block; cursor:crosshair; border:1px solid #191919; }
+.side { width:218px; display:flex; flex-direction:column; gap:8px; flex-shrink:0; }
+.panel { background:#0e0e0e; border:1px solid #1d1d1d; border-radius:5px; padding:11px; }
+.sec { font-size:0.58em; color:#2e2e2e; text-transform:uppercase; letter-spacing:0.15em; border-bottom:1px solid #181818; padding-bottom:4px; margin-bottom:8px; }
+.tgrid { display:grid; grid-template-columns:1fr 1fr; gap:4px; }
+.tbtn { padding:7px 5px; font:bold 0.63em/1.2 'Courier New',monospace; text-transform:uppercase; letter-spacing:0.03em; background:#131313; color:#555; border:1px solid #222; border-radius:3px; cursor:pointer; text-align:center; transition:all 0.1s; }
+.tbtn:hover { background:#191919; }
+.tbtn.on { border-width:1.5px; }
+.tbtn.wide { grid-column:span 2; }
+.tools { display:grid; grid-template-columns:1fr 1fr 1fr; gap:4px; }
+.tool { padding:6px 3px; font:bold 0.61em/1 'Courier New',monospace; text-transform:uppercase; background:#131313; color:#555; border:1px solid #222; border-radius:3px; cursor:pointer; text-align:center; transition:all 0.1s; }
+.tool:hover { background:#1a1a1a; }
+.tool.on { color:#4db8ff; border-color:#2a5a7a; background:#0a1520; }
+.cg { display:flex; flex-direction:column; gap:3px; margin-bottom:1px; }
+.cg label { font-size:0.63em; color:#404040; text-transform:uppercase; letter-spacing:0.04em; display:flex; justify-content:space-between; }
+.cg label span { color:#666; }
+input[type=range] { width:100%; accent-color:#4db8ff; cursor:pointer; height:13px; }
+.br { display:flex; gap:5px; }
+.btn { flex:1; padding:7px; font:bold 0.64em/1 'Courier New',monospace; text-transform:uppercase; background:#131313; color:#555; border:1px solid #222; border-radius:3px; cursor:pointer; transition:all 0.1s; }
+.btn:hover { background:#1c1c1c; color:#aaa; }
+.btn.on { background:#0a1520; color:#4db8ff; border-color:#2a5a7a; }
+.info { font-size:0.6em; color:#252525; margin-top:4px; }
+.hint { font-size:0.58em; color:#2a2a2a; margin-top:5px; font-style:italic; min-height:1.4em; }
+</style>
+</head>
+<body>
+<h1>Slime Growth Simulator</h1>
+<div class="wrap">
+<canvas id="c" width="580" height="520"></canvas>
+<div class="side">
+
+  <div class="panel">
+    <div class="sec">Organism</div>
+    <div class="tgrid" id="typeGrid">
+      <div class="tbtn on" id="T-physarum" onclick="setType('physarum')">Physarum</div>
+      <div class="tbtn" id="T-mycelium"  onclick="setType('mycelium')">Mycelium</div>
+      <div class="tbtn" id="T-amoeba"    onclick="setType('amoeba')">Amoeba</div>
+      <div class="tbtn" id="T-frost"     onclick="setType('frost')">Frost Mold</div>
+      <div class="tbtn wide" id="T-cordyceps" onclick="setType('cordyceps')">Cordyceps</div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="sec">Tools</div>
+    <div class="tools" id="toolGrid">
+      <div class="tool on" id="TL-spawn"    onclick="setTool('spawn')">Spawn</div>
+      <div class="tool"    id="TL-food"     onclick="setTool('food')">Food</div>
+      <div class="tool"    id="TL-wall"     onclick="setTool('wall')">Wall</div>
+      <div class="tool"    id="TL-heat"     onclick="setTool('heat')">Heat</div>
+      <div class="tool"    id="TL-cold"     onclick="setTool('cold')">Cold</div>
+      <div class="tool"    id="TL-erase"    onclick="setTool('erase')">Erase</div>
+    </div>
+    <div class="hint" id="toolHint">Click or drag to spawn agents</div>
+  </div>
+
+  <div class="panel">
+    <div class="sec">Parameters</div>
+    <div style="display:flex;flex-direction:column;gap:7px">
+      <div class="cg"><label>Sensor Angle <span id="vSA">45</span>°</label>
+        <input type=range id="sA" min=5 max=120 value=45 oninput="document.getElementById('vSA').innerText=this.value"></div>
+      <div class="cg"><label>Sensor Dist <span id="vSD">9</span></label>
+        <input type=range id="sD" min=2 max=28 value=9 oninput="document.getElementById('vSD').innerText=this.value"></div>
+      <div class="cg"><label>Turn Speed <span id="vTS">45</span>°</label>
+        <input type=range id="tS" min=5 max=120 value=45 oninput="document.getElementById('vTS').innerText=this.value"></div>
+      <div class="cg"><label>Move Speed <span id="vMS">1.5</span></label>
+        <input type=range id="mS" min=0.3 max=5 value=1.5 step=0.1 oninput="document.getElementById('vMS').innerText=this.value"></div>
+      <div class="cg"><label>Decay Rate <span id="vDR">0.022</span></label>
+        <input type=range id="dR" min=0.001 max=0.12 value=0.022 step=0.001 oninput="document.getElementById('vDR').innerText=parseFloat(this.value).toFixed(3)"></div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="br">
+      <div class="btn" id="bPause" onclick="togglePause()">Pause</div>
+      <div class="btn" onclick="resetSlime()">Reset</div>
+      <div class="btn" onclick="clearMap()">Clear</div>
+    </div>
+    <div class="info" id="infoEl">Agents: 0</div>
+    <div class="info" id="fpsEl">-- fps</div>
+  </div>
+
+</div>
+</div>
+
+<script>
+const canvas = document.getElementById('c');
+const ctx    = canvas.getContext('2d');
+const W = canvas.width, H = canvas.height, N = W * H;
+
+// ── Organism definitions ──────────────────────────────────────────────────
+const TYPES = {
+  physarum: {
+    label:'Physarum', sA:45, sD:9, tS:45, mS:1.5, dR:0.022, dep:0.052, n:18000,
+    cA:[0,10,0], cB:[170,255,0],      // trail color low → high
+    col:'#aaff00', brd:'#3d7000'
+  },
+  mycelium: {
+    label:'Mycelium', sA:22, sD:14, tS:18, mS:1.0, dR:0.004, dep:0.032, n:14000,
+    cA:[7,7,5], cB:[195,195,165],
+    col:'#ccccaa', brd:'#555540'
+  },
+  amoeba: {
+    label:'Amoeba', sA:85, sD:5, tS:75, mS:1.0, dR:0.048, dep:0.075, n:20000,
+    cA:[12,3,0], cB:[255,95,0],
+    col:'#ff6600', brd:'#7a2a00'
+  },
+  frost: {
+    label:'Frost Mold', sA:11, sD:20, tS:11, mS:1.2, dR:0.0025, dep:0.040, n:12000,
+    cA:[0,7,12], cB:[90,215,255],
+    col:'#55ddff', brd:'#1a5566'
+  },
+  cordyceps: {
+    label:'Cordyceps', sA:35, sD:11, tS:40, mS:2.2, dR:0.018, dep:0.060, n:16000,
+    cA:[10,0,0], cB:[255,35,0],
+    col:'#ff2200', brd:'#7a0a00'
+  }
+};
+
+// ── Grid state ────────────────────────────────────────────────────────────
+const trail  = new Float32Array(N);
+const trailB = new Float32Array(N); // diffusion buffer
+const food   = new Float32Array(N);
+const obs    = new Uint8Array(N);
+const temp   = new Float32Array(N); // -1 cold … +1 hot
+
+const imgBuf  = ctx.createImageData(W, H);
+const pixels  = imgBuf.data;
+
+// ── Agents ────────────────────────────────────────────────────────────────
+let agents = new Float32Array(0); // packed: [x, y, angle, x, y, angle, ...]
+let agentCount = 0;
+const ASTRIDE = 3;
+
+function allocAgents(n) {
+    agents = new Float32Array(n * ASTRIDE);
+    agentCount = 0;
+}
+
+function spawnAt(cx, cy, n, radius) {
+    const newA = new Float32Array((agentCount + n) * ASTRIDE);
+    newA.set(agents.subarray(0, agentCount * ASTRIDE));
+    for (let i = 0; i < n; i++) {
+        const a = Math.random() * Math.PI * 2;
+        const r = Math.random() * radius;
+        const x = cx + Math.cos(a) * r;
+        const y = cy + Math.sin(a) * r;
+        if (x < 1 || x >= W-1 || y < 1 || y >= H-1) continue;
+        if (obs[~~y * W + ~~x]) continue;
+        const base = (agentCount++) * ASTRIDE;
+        newA[base]   = x;
+        newA[base+1] = y;
+        newA[base+2] = Math.random() * Math.PI * 2;
+    }
+    agents = newA;
+}
+
+// ── Simulation step ───────────────────────────────────────────────────────
+function step() {
+    const sA = +document.getElementById('sA').value * Math.PI / 180;
+    const sD = +document.getElementById('sD').value;
+    const tS = +document.getElementById('tS').value * Math.PI / 180;
+    const mS = +document.getElementById('mS').value;
+    const dR = +document.getElementById('dR').value;
+    const dep = activeDef.dep;
+
+    const DIFF   = 0.15;
+    const KEEP   = 1.0 - DIFF;
+    const DIFF4  = DIFF * 0.25;
+
+    // Move agents
+    let alive = 0;
+    for (let i = 0; i < agentCount; i++) {
+        const base = i * ASTRIDE;
+        let x = agents[base], y = agents[base+1], ang = agents[base+2];
+
+        // Sense at centre, left, right
+        const sense = (a) => {
+            const sx = x + Math.cos(a) * sD;
+            const sy = y + Math.sin(a) * sD;
+            if (sx < 0 || sx >= W || sy < 0 || sy >= H) return -0.5;
+            const si = ~~sy * W + ~~sx;
+            if (obs[si]) return -2.0;
+            return trail[si] + food[si] * 8.0;
+        };
+        const fC = sense(ang);
+        const fL = sense(ang + sA);
+        const fR = sense(ang - sA);
+
+        if (fC >= fL && fC >= fR) {
+            // forward — no turn
+        } else if (fL > fR) {
+            ang += tS;
+        } else if (fR > fL) {
+            ang -= tS;
+        } else {
+            ang += (Math.random() < 0.5 ? 1 : -1) * tS;
+        }
+
+        // Temperature modulates speed
+        const ci = ~~y * W + ~~x;
+        const localSpeed = mS * (1 + temp[ci < N ? ci : 0] * 0.65);
+
+        const nx = x + Math.cos(ang) * localSpeed;
+        const ny = y + Math.sin(ang) * localSpeed;
+
+        if (nx >= 1 && nx < W-1 && ny >= 1 && ny < H-1) {
+            const ni = ~~ny * W + ~~nx;
+            if (!obs[ni]) {
+                x = nx; y = ny;
+                trail[ni] = Math.min(1.0, trail[ni] + dep);
+                // Extreme heat kills
+                if (temp[ni] > 0.94) { continue; }
+            } else {
+                ang += Math.PI + (Math.random() - 0.5) * 0.9;
+            }
+        } else {
+            ang += Math.PI + (Math.random() - 0.5) * 0.5;
+        }
+
+        // Write back alive agent
+        const wb = alive * ASTRIDE;
+        agents[wb]   = x;
+        agents[wb+1] = y;
+        agents[wb+2] = ang;
+        alive++;
+    }
+    agentCount = alive;
+
+    // Diffuse trail: proper ping-pong to avoid directional bias
+    trailB.set(trail);
+    for (let y = 1; y < H-1; y++) {
+        const row = y * W;
+        for (let x = 1; x < W-1; x++) {
+            const i = row + x;
+            if (obs[i]) { trail[i] = 0; continue; }
+            const tmpi = temp[i];
+            const localDecay = dR * (1 + tmpi * 0.9);
+            const v = trailB[i]*KEEP + (trailB[i-1]+trailB[i+1]+trailB[i-W]+trailB[i+W])*DIFF4;
+            trail[i] = Math.max(0, v * (1 - localDecay));
+            // Food sustains trail
+            if (food[i] > 0) trail[i] = Math.min(1.0, trail[i] + food[i] * 0.009);
+        }
+    }
+}
+
+// ── Render ────────────────────────────────────────────────────────────────
+function render() {
+    const [ar, ag_, ab] = activeDef.cA;
+    const [br, bg, bb]  = activeDef.cB;
+    const dr = br-ar, dg = bg-ag_, db = bb-ab;
+
+    for (let i = 0; i < N; i++) {
+        const px = i << 2;
+        if (obs[i]) {
+            pixels[px]   = 20;
+            pixels[px+1] = 22;
+            pixels[px+2] = 32;
+            pixels[px+3] = 255;
+            continue;
+        }
+        const t = trail[i]; // 0..1
+        let r = ar + dr * t;
+        let g = ag_ + dg * t;
+        let b = ab + db * t;
+
+        // Food: warm yellow/white glow
+        const f = food[i];
+        if (f > 0) {
+            r = Math.min(255, r + f * 210);
+            g = Math.min(255, g + f * 195);
+            b = Math.min(255, b + f * 80);
+        }
+
+        // Temperature tint
+        const tm = temp[i];
+        if (tm > 0) {
+            r = Math.min(255, r + tm * 60);
+            b = Math.max(0,   b - tm * 25);
+        } else if (tm < 0) {
+            b = Math.min(255, b + (-tm) * 75);
+            r = Math.max(0,   r - (-tm) * 25);
+        }
+
+        pixels[px]   = r;
+        pixels[px+1] = g;
+        pixels[px+2] = b;
+        pixels[px+3] = 255;
+    }
+
+    ctx.putImageData(imgBuf, 0, 0);
+
+    // Cursor preview ring
+    if (mouseX >= 0) {
+        const br = BRUSH_R[activeTool] || 10;
+        ctx.save();
+        ctx.strokeStyle = 'rgba(255,255,255,0.18)';
+        ctx.lineWidth = 1;
+        ctx.setLineDash([3, 3]);
+        ctx.beginPath(); ctx.arc(mouseX, mouseY, br, 0, Math.PI*2);
+        ctx.stroke(); ctx.restore();
+    }
+}
+
+// ── Tools & painting ──────────────────────────────────────────────────────
+const BRUSH_R = { spawn:22, food:10, wall:8, heat:13, cold:13, erase:13 };
+const TOOL_HINTS = {
+    spawn: 'Click/drag to spawn more agents',
+    food:  'Click/drag to paint food — slime grows toward it',
+    wall:  'Click/drag to paint solid walls',
+    heat:  'Click/drag to paint heat zones — speeds growth, kills extremes',
+    cold:  'Click/drag to paint cold zones — slows growth, preserves trails',
+    erase: 'Click/drag to erase walls / food / temperature',
+};
+
+let activeTool = 'spawn';
+let activeDef  = TYPES.physarum;
+let currentType = 'physarum';
+let isDown = false;
+let mouseX = -1, mouseY = -1;
+
+function setTool(t) {
+    activeTool = t;
+    document.querySelectorAll('.tool').forEach(b => b.classList.remove('on'));
+    document.getElementById('TL-'+t).classList.add('on');
+    document.getElementById('toolHint').innerText = TOOL_HINTS[t];
+}
+
+function paintAt(mx, my) {
+    const r = BRUSH_R[activeTool];
+    const ix = ~~mx, iy = ~~my;
+    for (let dy = -r; dy <= r; dy++) {
+        for (let dx = -r; dx <= r; dx++) {
+            if (dx*dx + dy*dy > r*r) continue;
+            const px = ix+dx, py = iy+dy;
+            if (px < 0 || px >= W || py < 0 || py >= H) continue;
+            const i = py*W+px;
+            const strength = 1 - Math.sqrt(dx*dx+dy*dy) / r; // 0..1 (centre=1)
+            switch (activeTool) {
+                case 'spawn': break; // handled on click
+                case 'food':  food[i] = Math.min(1, food[i] + strength * 0.12); break;
+                case 'wall':  obs[i] = 1; trail[i] = 0; break;
+                case 'heat':  temp[i] = Math.min(1,  temp[i] + strength * 0.18); break;
+                case 'cold':  temp[i] = Math.max(-1, temp[i] - strength * 0.18); break;
+                case 'erase': obs[i] = 0; food[i] = 0; temp[i] = 0; break;
+            }
+        }
+    }
+    if (activeTool === 'spawn') {
+        spawnAt(mx, my, 150, BRUSH_R.spawn);
+    }
+}
+
+canvas.addEventListener('mousedown', e => {
+    isDown = true;
+    const r = canvas.getBoundingClientRect();
+    paintAt((e.clientX-r.left)*(W/r.width), (e.clientY-r.top)*(H/r.height));
+});
+canvas.addEventListener('mousemove', e => {
+    const r = canvas.getBoundingClientRect();
+    mouseX = (e.clientX-r.left)*(W/r.width);
+    mouseY = (e.clientY-r.top)*(H/r.height);
+    if (isDown) paintAt(mouseX, mouseY);
+});
+canvas.addEventListener('mouseup', () => isDown = false);
+canvas.addEventListener('mouseleave', () => { isDown = false; mouseX = -1; });
+
+// ── Type switching ────────────────────────────────────────────────────────
+function setType(type) {
+    currentType = type;
+    activeDef = TYPES[type];
+    document.querySelectorAll('.tbtn').forEach(b => {
+        b.classList.remove('on');
+        b.style.color = b.style.borderColor = '';
+    });
+    const btn = document.getElementById('T-'+type);
+    btn.classList.add('on');
+    btn.style.color = activeDef.col;
+    btn.style.borderColor = activeDef.brd;
+    // Sync sliders
+    document.getElementById('sA').value = activeDef.sA; document.getElementById('vSA').innerText = activeDef.sA;
+    document.getElementById('sD').value = activeDef.sD; document.getElementById('vSD').innerText = activeDef.sD;
+    document.getElementById('tS').value = activeDef.tS; document.getElementById('vTS').innerText = activeDef.tS;
+    document.getElementById('mS').value = activeDef.mS; document.getElementById('vMS').innerText = activeDef.mS;
+    document.getElementById('dR').value = activeDef.dR; document.getElementById('vDR').innerText = activeDef.dR.toFixed(3);
+}
+
+// ── Reset / Clear ─────────────────────────────────────────────────────────
+function resetSlime() {
+    trail.fill(0);
+    allocAgents(activeDef.n + 5000);
+    spawnAt(W/2, H/2, activeDef.n, 30);
+}
+
+function clearMap() {
+    obs.fill(0); food.fill(0); temp.fill(0);
+}
+
+// ── Loop ──────────────────────────────────────────────────────────────────
+let paused = false, fpsFr = 0, fpsT = performance.now();
+
+function togglePause() {
+    paused = !paused;
+    const b = document.getElementById('bPause');
+    b.textContent = paused ? 'Resume' : 'Pause';
+    b.classList.toggle('on', paused);
+    if (!paused) loop();
+}
+
+function loop() {
+    if (paused) return;
+    step();
+    render();
+    fpsFr++;
+    const now = performance.now();
+    if (now - fpsT >= 700) {
+        document.getElementById('fpsEl').innerText = Math.round(fpsFr/(now-fpsT)*1000)+' fps';
+        document.getElementById('infoEl').innerText = `Agents: ${agentCount.toLocaleString()}`;
+        fpsFr = 0; fpsT = now;
+    }
+    requestAnimationFrame(loop);
+}
+
+// ── Boot ──────────────────────────────────────────────────────────────────
+setType('physarum');
+allocAgents(activeDef.n + 5000);
+spawnAt(W/2, H/2, activeDef.n, 30);
+loop();
+</script>
+</body>
+</html>

@@ -195,6 +195,20 @@ python3 sortrace.py
 
 ---
 
+### [`slime/`](slime/) — SLIME
+
+A Physarum-style slime mould and fungal growth simulator. Tens of thousands of microscopic agents follow a simple three-rule loop — sense the chemical trail ahead (left, centre, right), turn toward the strongest concentration, move forward, deposit more trail — and from this emerges the vein-like transport networks that actual slime moulds use to solve mazes and optimise rail networks. Which is, if you think about it, more impressive than most software.
+
+Five organism types with distinct growth behaviours: **Physarum polycephalum** (yellow-green network-forming slime mould), **Mycelium** (white branching fungal filaments), **Amoeba** (amorphous orange blob spreading), **Frost Mold** (slow crystalline cyan dendrites), and **Cordyceps** (aggressive red invader). Each has its own sensor angle, turn speed, decay rate, and deposit strength — all adjustable live.
+
+Paint onto the canvas with six tools: **Spawn** (drop more agents), **Food** (warm yellow glow that slime grows toward), **Wall** (solid obstacles to route around), **Heat** (speeds growth and decay — extreme heat kills), **Cold** (slows growth but preserves trails, useful for forcing patterns), and **Erase**. A dashed cursor ring shows your brush. Reset restarts the slime but keeps your painted environment; Clear wipes the map.
+
+> *"She turned me into a slime mould." "A slime mould?" "I got networks. Efficient ones. Connecting all the major nutrient sources. I am, if anything, better than I was."*
+
+**Open in browser:** `slime/slime.html` — single self-contained HTML file, no server required.
+
+---
+
 ### [`emergent/`](emergent/) — EMERGENT
 
 A multi-swarm potential field racing simulator. Autonomous robots — rendered as glowing directional triangles — orbit a circular track according to three forces: a tangential drive pushing them around the ring, a boundary repulsion keeping them on it, and inter-robot collision avoidance stopping them from occupying the same point in space, which the laws of physics generally discourage.
