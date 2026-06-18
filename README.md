@@ -195,6 +195,20 @@ python3 sortrace.py
 
 ---
 
+### [`emergent/`](emergent/) — EMERGENT
+
+A multi-swarm potential field racing simulator. Autonomous robots — rendered as glowing directional triangles — orbit a circular track according to three forces: a tangential drive pushing them around the ring, a boundary repulsion keeping them on it, and inter-robot collision avoidance stopping them from occupying the same point in space, which the laws of physics generally discourage.
+
+The interesting part: swarms are assigned alternating directions. Alpha goes clockwise. Beta goes counter-clockwise. They share the same track. The robots do not negotiate. What emerges from this is not a race, exactly — more of a ongoing disagreement conducted at speed, with occasional clustering, overtaking, and the formation of dense pressure fronts where the two swarms meet head-on. Nobody wins. Nobody stops. It is, in this sense, a reasonable model of several things.
+
+Adjust number of swarms (up to six), robots per swarm, speed gain, collision strength, and trail length live. A lap counter tracks how many full circuits each swarm's lead robot has completed. Pause, resume, reset. The finish line is there. Nobody is crossing it so much as passing through it repeatedly.
+
+> *"What is your quest?" "To orbit the track indefinitely while avoiding contact with the blue swarm." "What is your favourite colour?" "Irrelevant — I am going counter-clockwise."*
+
+**Open in browser:** `emergent/robosim.html` — single self-contained HTML file, no server required.
+
+---
+
 ### [`swarm/`](swarm/) — SWARM
 
 A Boids flocking simulation. Sixty autonomous agents follow three rules — separation (don't crowd your neighbours), alignment (match their heading), cohesion (drift toward their centre of mass) — and from these three rules, emergent flocking behaviour appears as if from nowhere, which is either emergent complexity or witchcraft and I have not ruled out the latter.
