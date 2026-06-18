@@ -1,407 +1,474 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Multi-Swarm Potential Field Race</title>
-    <style>
-        * { box-sizing: border-box; }
-        body {
-            font-family: 'Courier New', monospace;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            background: #0d0d0d;
-            color: #ccc;
-            margin: 0;
-            padding: 20px;
-            min-height: 100vh;
-        }
-        h1 {
-            font-size: 1.3em;
-            letter-spacing: 0.12em;
-            color: #aaa;
-            margin: 0 0 16px 0;
-            text-transform: uppercase;
-        }
-        canvas {
-            background: #000;
-            border: 2px solid #222;
-            border-radius: 50%;
-            box-shadow: 0 0 40px rgba(80, 120, 255, 0.12), 0 0 80px rgba(0,0,0,0.8);
-        }
-        .bottom-row {
-            display: flex;
-            gap: 16px;
-            margin-top: 16px;
-            width: 680px;
-        }
-        .panel {
-            background: #1a1a1a;
-            border: 1px solid #333;
-            border-radius: 8px;
-            padding: 16px;
-        }
-        .controls-panel {
-            flex: 1;
-            display: flex;
-            flex-direction: column;
-            gap: 12px;
-        }
-        .stats-panel {
-            width: 220px;
-            display: flex;
-            flex-direction: column;
-            gap: 8px;
-        }
-        .control-group {
-            display: flex;
-            flex-direction: column;
-            gap: 4px;
-        }
-        .control-group label {
-            font-size: 0.72em;
-            color: #888;
-            text-transform: uppercase;
-            letter-spacing: 0.08em;
-        }
-        input[type="range"] {
-            width: 100%;
-            cursor: pointer;
-            accent-color: #4db8ff;
-        }
-        .btn-row {
-            display: flex;
-            gap: 8px;
-        }
-        button {
-            flex: 1;
-            padding: 8px 12px;
-            font-family: 'Courier New', monospace;
-            font-size: 0.8em;
-            font-weight: bold;
-            text-transform: uppercase;
-            letter-spacing: 0.06em;
-            background: #222;
-            color: #aaa;
-            border: 1px solid #444;
-            border-radius: 5px;
-            cursor: pointer;
-            transition: background 0.15s, color 0.15s;
-        }
-        button:hover { background: #2e2e2e; color: #fff; }
-        button.active { background: #1a3a1a; color: #2ecc71; border-color: #2ecc71; }
-        .panel-title {
-            font-size: 0.68em;
-            text-transform: uppercase;
-            letter-spacing: 0.1em;
-            color: #555;
-            margin-bottom: 4px;
-            border-bottom: 1px solid #2a2a2a;
-            padding-bottom: 6px;
-        }
-        .swarm-row {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            font-size: 0.75em;
-            padding: 4px 0;
-            border-bottom: 1px solid #222;
-        }
-        .swarm-row:last-child { border-bottom: none; }
-        .swarm-dot {
-            width: 9px; height: 9px;
-            border-radius: 50%;
-            flex-shrink: 0;
-        }
-        .swarm-name { color: #bbb; width: 56px; flex-shrink: 0; }
-        .swarm-dir { color: #555; width: 32px; flex-shrink: 0; font-size: 0.9em; }
-        .swarm-laps { color: #4db8ff; margin-left: auto; }
-        .fps-line {
-            font-size: 0.68em;
-            color: #444;
-            text-align: right;
-            margin-top: 4px;
-        }
-        .sys-stats {
-            font-size: 0.7em;
-            color: #555;
-            margin-top: 6px;
-            border-top: 1px solid #222;
-            padding-top: 6px;
-        }
-    </style>
+<title>Emergent Swarm Simulator</title>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: 'Courier New', monospace; display: flex; flex-direction: column; align-items: center; background: #0a0a0a; color: #ccc; padding: 14px; }
+h1 { font-size: 0.95em; letter-spacing: 0.2em; color: #555; text-transform: uppercase; margin-bottom: 11px; }
+#c { background: #000; border: 1px solid #1a1a1a; display: block; }
+#c.obs-mode { cursor: crosshair; }
+.row { display: flex; gap: 11px; margin-top: 11px; width: 700px; }
+.panel { background: #0f0f0f; border: 1px solid #1e1e1e; border-radius: 5px; padding: 12px; }
+.ctrl { flex: 1; display: flex; flex-direction: column; gap: 9px; }
+.stat { width: 190px; display: flex; flex-direction: column; gap: 5px; }
+.sec { font-size: 0.6em; color: #333; text-transform: uppercase; letter-spacing: 0.14em; border-bottom: 1px solid #191919; padding-bottom: 4px; margin-bottom: 2px; }
+.cg label { font-size: 0.67em; color: #5a5a5a; display: block; margin-bottom: 2px; text-transform: uppercase; letter-spacing: 0.05em; }
+input[type=range] { width: 100%; accent-color: #4db8ff; cursor: pointer; height: 14px; }
+.br { display: flex; gap: 5px; }
+button { flex: 1; padding: 6px 7px; font: bold 0.66em/1 'Courier New', monospace; text-transform: uppercase; letter-spacing: 0.04em; background: #161616; color: #555; border: 1px solid #252525; border-radius: 3px; cursor: pointer; white-space: nowrap; transition: all 0.1s; }
+button:hover { background: #1c1c1c; color: #999; }
+button.on { background: #0c1a28; color: #4db8ff; border-color: #2a5a7a; }
+button.on.red { background: #200e0e; color: #ff5a5a; border-color: #6a2020; }
+button.map { font-size: 0.63em; padding: 5px 3px; }
+button.map.on { background: #0c1f0c; color: #2ecc71; border-color: #1a5a1a; }
+.sr { display: flex; align-items: center; gap: 6px; font-size: 0.68em; padding: 3px 0; border-bottom: 1px solid #161616; }
+.sr:last-child { border: none; }
+.dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
+.sn { color: #999; width: 48px; }
+.sd { color: #2e2e2e; width: 26px; font-size: 0.9em; }
+.sl { color: #4db8ff; margin-left: auto; font-weight: bold; }
+.inf { font-size: 0.61em; color: #282828; margin-top: 3px; }
+.hint { font-size: 0.6em; color: #2a2a2a; margin-top: 2px; font-style: italic; }
+</style>
 </head>
 <body>
-    <h1>Multi-Swarm Potential Field Race</h1>
-    <canvas id="raceCanvas" width="620" height="620"></canvas>
-
-    <div class="bottom-row">
-        <div class="panel controls-panel">
-            <div class="control-group">
-                <label>Swarms: <span id="swarmLabel">2</span></label>
-                <input type="range" id="numSwarms" min="1" max="6" value="2" oninput="initSimulation()">
-            </div>
-            <div class="control-group">
-                <label>Robots per Swarm: <span id="robotLabel">10</span></label>
-                <input type="range" id="robotsPerSwarm" min="1" max="40" value="10" oninput="initSimulation()">
-            </div>
-            <div class="control-group">
-                <label>Speed Gain: <span id="speedLabel">2.5</span></label>
-                <input type="range" id="speedGain" min="0" max="5" value="2.5" step="0.1" oninput="document.getElementById('speedLabel').innerText=this.value">
-            </div>
-            <div class="control-group">
-                <label>Collision Strength: <span id="repLabel">12</span></label>
-                <input type="range" id="repulsionGain" min="0" max="25" value="12" step="0.5" oninput="document.getElementById('repLabel').innerText=this.value">
-            </div>
-            <div class="control-group">
-                <label>Trail Length: <span id="trailLabel">0.12</span></label>
-                <input type="range" id="trailAlpha" min="0.03" max="0.8" value="0.12" step="0.01" oninput="document.getElementById('trailLabel').innerText=parseFloat(this.value).toFixed(2)">
-            </div>
-            <div class="btn-row">
-                <button id="pauseBtn" onclick="togglePause()">Pause</button>
-                <button onclick="initSimulation()">Reset</button>
-            </div>
-        </div>
-
-        <div class="panel stats-panel">
-            <div class="panel-title">Swarm Stats</div>
-            <div id="swarmStats"></div>
-            <div class="sys-stats" id="sysStats">Robots: 20</div>
-            <div class="fps-line" id="fpsLine">-- fps</div>
-        </div>
+<h1>Emergent Swarm Simulator</h1>
+<canvas id="c" width="700" height="700"></canvas>
+<div class="row">
+  <div class="panel ctrl">
+    <div>
+      <div class="sec">Track Shape</div>
+      <div class="br">
+        <button class="map on" id="t-ring"    onclick="setTrack('ring')">Ring</button>
+        <button class="map"    id="t-oval"    onclick="setTrack('oval')">Oval</button>
+        <button class="map"    id="t-fig8"    onclick="setTrack('fig8')">Figure-8</button>
+        <button class="map"    id="t-stadium" onclick="setTrack('stadium')">Stadium</button>
+      </div>
     </div>
+    <div class="cg">
+      <label>Swarms: <span id="lS">2</span></label>
+      <input type=range id="nS" min=1 max=6 value=2 oninput="respawn()">
+    </div>
+    <div class="cg">
+      <label>Robots / Swarm: <span id="lR">10</span></label>
+      <input type=range id="nR" min=1 max=40 value=10 oninput="respawn()">
+    </div>
+    <div class="cg">
+      <label>Speed: <span id="lSp">2.5</span></label>
+      <input type=range id="spd" min=0.5 max=7 value=2.5 step=0.1 oninput="document.getElementById('lSp').innerText=this.value">
+    </div>
+    <div class="cg">
+      <label>Collision: <span id="lC">12</span></label>
+      <input type=range id="col" min=0 max=30 value=12 step=0.5 oninput="document.getElementById('lC').innerText=this.value">
+    </div>
+    <div class="cg">
+      <label>Trail: <span id="lT">0.12</span></label>
+      <input type=range id="trl" min=0.02 max=0.9 value=0.12 step=0.01 oninput="document.getElementById('lT').innerText=parseFloat(this.value).toFixed(2)">
+    </div>
+    <div>
+      <div class="sec">Obstacles</div>
+      <div class="br">
+        <button id="bObs" class="red" onclick="toggleObs()">+ Place</button>
+        <button onclick="clearObs()">Clear All</button>
+      </div>
+      <div class="hint" id="obsHint">Click canvas to place • click obstacle to remove</div>
+    </div>
+    <div class="br">
+      <button id="bPause" onclick="togglePause()">Pause</button>
+      <button onclick="initSim()">Reset</button>
+    </div>
+  </div>
+  <div class="panel stat">
+    <div class="sec">Swarm Status</div>
+    <div id="ss"></div>
+    <div class="inf" id="meta">Robots: 20 | Obs: 0</div>
+    <div class="inf" id="fps">-- fps</div>
+  </div>
+</div>
 
-    <script>
-        const canvas = document.getElementById('raceCanvas');
-        const ctx = canvas.getContext('2d');
-        const cx = 310, cy = 310;
-        const R_inner = 135, R_outer = 270;
+<script>
+const canvas = document.getElementById('c');
+const ctx = canvas.getContext('2d');
+const W = 700, H = 700, CX = 350, CY = 350;
 
-        const COLORS = ['#4db8ff', '#ff7f3f', '#2ecc71', '#e74c3c', '#c39bd3', '#f1c40f'];
-        const NAMES  = ['Alpha',   'Beta',    'Gamma',   'Delta',   'Epsilon', 'Zeta'];
+const COLORS = ['#4db8ff','#ff7f3f','#2ecc71','#e74c3c','#c39bd3','#f1c40f'];
+const NAMES  = ['Alpha','Beta','Gamma','Delta','Epsilon','Zeta'];
 
-        let robots = [];
-        let paused = false;
-        let rafId = null;
+// ── Track factory ─────────────────────────────────────────────────────────
+function buildTrack(type) {
+    const N = 600;
 
-        // FPS tracking
-        let fpsLastTime = performance.now();
-        let fpsFrames = 0;
-        let fpsDisplay = 0;
-
-        function initSimulation() {
-            const numSwarms = parseInt(document.getElementById('numSwarms').value);
-            const perSwarm  = parseInt(document.getElementById('robotsPerSwarm').value);
-            document.getElementById('swarmLabel').innerText = numSwarms;
-            document.getElementById('robotLabel').innerText = perSwarm;
-            document.getElementById('sysStats').innerText = `Robots: ${numSwarms * perSwarm}`;
-
-            robots = [];
-            for (let s = 0; s < numSwarms; s++) {
-                const dir   = s % 2 === 0 ? 1 : -1;
-                const color = COLORS[s % COLORS.length];
-                for (let i = 0; i < perSwarm; i++) {
-                    const angle = Math.random() * Math.PI * 2;
-                    const dist  = R_inner + 20 + Math.random() * (R_outer - R_inner - 40);
-                    robots.push({
-                        x: cx + Math.cos(angle) * dist,
-                        y: cy + Math.sin(angle) * dist,
-                        vx: 0, vy: 0,
-                        color, dir,
-                        swarm: s,
-                        id: s * perSwarm + i,
-                        prevAngle: angle,
-                        totalAngle: 0,
-                        laps: 0,
-                    });
-                }
+    const shapes = {
+        ring: {
+            hw: 65,
+            pt(t) {
+                const a = t * Math.PI * 2;
+                return [CX + 210 * Math.cos(a), CY + 210 * Math.sin(a)];
             }
-
-            // Clear canvas
-            ctx.clearRect(0, 0, canvas.width, canvas.height);
-            ctx.fillStyle = '#000';
-            ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-            updateSwarmStats();
+        },
+        oval: {
+            hw: 60,
+            pt(t) {
+                const a = t * Math.PI * 2;
+                return [CX + 258 * Math.cos(a), CY + 148 * Math.sin(a)];
+            }
+        },
+        fig8: {
+            hw: 56,
+            // Lemniscate-style figure-8: two lobes, crosses at center
+            pt(t) {
+                const a = t * Math.PI * 2;
+                return [CX + 218 * Math.sin(a), CY + 118 * Math.sin(2 * a)];
+            }
+        },
+        stadium: {
+            hw: 54,
+            // Rounded rectangle: straights + semicircular caps
+            pt(t) {
+                const sw = 170, cr = 86;
+                const tl = 2 * sw, al = Math.PI * cr;
+                const P = 2 * tl + 2 * al;
+                let d = (((t % 1) + 1) % 1) * P;
+                if (d < tl)  return [CX - sw + d, CY - cr];
+                d -= tl;
+                if (d < al) { const a = -Math.PI/2 + (d/al)*Math.PI; return [CX+sw+cr*Math.cos(a), CY+cr*Math.sin(a)]; }
+                d -= al;
+                if (d < tl)  return [CX + sw - d, CY + cr];
+                d -= tl;
+                const a = Math.PI/2 + (d/al)*Math.PI;
+                return [CX - sw + cr*Math.cos(a), CY + cr*Math.sin(a)];
+            }
         }
+    };
 
-        function togglePause() {
-            paused = !paused;
-            const btn = document.getElementById('pauseBtn');
-            btn.textContent = paused ? 'Resume' : 'Pause';
-            btn.classList.toggle('active', paused);
-            if (!paused) loop();
+    const shape = shapes[type];
+    const hw = shape.hw;
+
+    // Sample cache for fast nearest-point search
+    const px = new Float32Array(N), py = new Float32Array(N);
+    for (let i = 0; i < N; i++) {
+        const p = shape.pt(i / N);
+        px[i] = p[0]; py[i] = p[1];
+    }
+
+    function getPoint(t)   { return shape.pt(t); }
+    function getTangent(t) {
+        const d = 1/N;
+        const a = shape.pt((t + d) % 1);
+        const b = shape.pt(((t - d) % 1 + 1) % 1);
+        const dx = a[0]-b[0], dy = a[1]-b[1];
+        const m = Math.sqrt(dx*dx+dy*dy) || 1;
+        return [dx/m, dy/m];
+    }
+    // Search ±25% of track from prevT (prevents figure-8 crossing confusion)
+    function nearestFrom(x, y, prevT) {
+        const win = Math.floor(N * 0.25);
+        const si = ((Math.round(prevT*N) - win) % N + N) % N;
+        let best = Infinity, bi = si;
+        for (let s = 0; s <= win*2; s++) {
+            const i = (si+s) % N;
+            const dx = px[i]-x, dy = py[i]-y, d2 = dx*dx+dy*dy;
+            if (d2 < best) { best = d2; bi = i; }
         }
+        return bi / N;
+    }
+    function nearestFull(x, y) {
+        let best = Infinity, bi = 0;
+        for (let i = 0; i < N; i++) {
+            const dx = px[i]-x, dy = py[i]-y, d2 = dx*dx+dy*dy;
+            if (d2 < best) { best = d2; bi = i; }
+        }
+        return bi / N;
+    }
 
-        function update() {
-            const speedGain    = parseFloat(document.getElementById('speedGain').value);
-            const repulsionGain = parseFloat(document.getElementById('repulsionGain').value);
+    // Pre-render track to offscreen canvas (blitted each frame, stays crisp over trails)
+    const off = document.createElement('canvas');
+    off.width = W; off.height = H;
+    _renderTrackTo(off.getContext('2d'), N, shape, hw);
 
-            robots.forEach(r => {
-                let fx = 0, fy = 0;
-                const dxc = r.x - cx, dyc = r.y - cy;
-                const dist = Math.sqrt(dxc * dxc + dyc * dyc) || 0.001;
+    return { type, hw, getPoint, getTangent, nearestFrom, nearestFull, off };
+}
 
-                // 1. Tangential drive
-                const tx = -dyc * r.dir, ty = dxc * r.dir;
-                const tMag = Math.sqrt(tx * tx + ty * ty) || 0.001;
-                fx += (tx / tMag) * speedGain;
-                fy += (ty / tMag) * speedGain;
+function _renderTrackTo(oc, N, shape, hw) {
+    // Compute outer/inner boundary arrays
+    const ox = new Float32Array(N+1), oy = new Float32Array(N+1);
+    const ix = new Float32Array(N+1), iy = new Float32Array(N+1);
+    const cpx = new Float32Array(N),   cpy = new Float32Array(N);
+    for (let i = 0; i <= N; i++) {
+        const t = (i % N) / N;
+        const p = shape.pt(t);
+        const d = 1/N;
+        const a = shape.pt((t+d)%1), b = shape.pt(((t-d)%1+1)%1);
+        const dx=a[0]-b[0], dy=a[1]-b[1], m=Math.sqrt(dx*dx+dy*dy)||1;
+        const nx = -dy/m * hw, ny = dx/m * hw;
+        ox[i]=p[0]+nx; oy[i]=p[1]+ny;
+        ix[i]=p[0]-nx; iy[i]=p[1]-ny;
+        if (i < N) { cpx[i]=p[0]; cpy[i]=p[1]; }
+    }
 
-                // 2. Track boundary repulsion
-                if (dist < R_inner + 15) {
-                    const mag = (R_inner + 15 - dist) * 0.9;
-                    fx += (dxc / dist) * mag;
-                    fy += (dyc / dist) * mag;
-                }
-                if (dist > R_outer - 15) {
-                    const mag = (dist - (R_outer - 15)) * 0.9;
-                    fx -= (dxc / dist) * mag;
-                    fy -= (dyc / dist) * mag;
-                }
+    // Track fill
+    const fill = new Path2D();
+    fill.moveTo(ox[0], oy[0]);
+    for (let i=1; i<=N; i++) fill.lineTo(ox[i], oy[i]);
+    fill.lineTo(ix[N], iy[N]);
+    for (let i=N-1; i>=0; i--) fill.lineTo(ix[i], iy[i]);
+    fill.closePath();
+    oc.fillStyle = '#07070f';
+    oc.fill(fill);
 
-                // 3. Inter-robot repulsion (same vs opposing swarm)
-                robots.forEach(other => {
-                    if (r.id === other.id) return;
-                    const rdx = r.x - other.x, rdy = r.y - other.y;
-                    const d = Math.sqrt(rdx * rdx + rdy * rdy) || 0.001;
-                    const sameSwarm = r.swarm === other.swarm;
-                    const safeDist  = sameSwarm ? 16 : 22;
-                    const mult      = sameSwarm ? 0.04 : 0.07;
-                    if (d < safeDist) {
-                        const rep = (safeDist - d) * repulsionGain * mult;
-                        fx += (rdx / d) * rep;
-                        fy += (rdy / d) * rep;
-                    }
-                });
+    // Boundary lines with glow
+    oc.save();
+    oc.shadowBlur = 12;
+    oc.shadowColor = 'rgba(40,60,160,0.35)';
+    oc.strokeStyle = '#222235';
+    oc.lineWidth = 2.5;
+    const op = new Path2D(); op.moveTo(ox[0],oy[0]); for(let i=1;i<=N;i++) op.lineTo(ox[i],oy[i]);
+    const ip = new Path2D(); ip.moveTo(ix[0],iy[0]); for(let i=1;i<=N;i++) ip.lineTo(ix[i],iy[i]);
+    oc.stroke(op); oc.stroke(ip);
+    oc.restore();
 
-                // 4. Noise
-                fx += (Math.random() - 0.5) * 0.3;
-                fy += (Math.random() - 0.5) * 0.3;
+    // Centre dashed lane
+    oc.strokeStyle = '#131320'; oc.lineWidth = 1; oc.setLineDash([9,13]);
+    const cp = new Path2D(); cp.moveTo(cpx[0],cpy[0]);
+    for (let i=1; i<N; i++) cp.lineTo(cpx[i],cpy[i]); cp.closePath();
+    oc.stroke(cp); oc.setLineDash([]);
 
-                // Inertia blending
-                r.vx = r.vx * 0.75 + fx * 0.25;
-                r.vy = r.vy * 0.75 + fy * 0.25;
-                r.x += r.vx;
-                r.y += r.vy;
+    // Finish line at t=0
+    const fp = shape.pt(0);
+    const fa = shape.pt(1/N), fb = shape.pt(1 - 1/N);
+    const fdx=fa[0]-fb[0], fdy=fa[1]-fb[1], fm=Math.sqrt(fdx*fdx+fdy*fdy)||1;
+    const fnx=-fdy/fm*(hw-4), fny=fdx/fm*(hw-4);
+    oc.strokeStyle = 'rgba(255,255,255,0.4)'; oc.lineWidth = 2; oc.setLineDash([4,4]);
+    oc.beginPath(); oc.moveTo(fp[0]+fnx,fp[1]+fny); oc.lineTo(fp[0]-fnx,fp[1]-fny);
+    oc.stroke(); oc.setLineDash([]);
+}
 
-                // Lap tracking via cumulative angle
-                const newAngle = Math.atan2(r.y - cy, r.x - cx);
-                let delta = newAngle - r.prevAngle;
-                if (delta >  Math.PI) delta -= 2 * Math.PI;
-                if (delta < -Math.PI) delta += 2 * Math.PI;
-                r.totalAngle += delta;
-                r.prevAngle = newAngle;
-                r.laps = Math.floor(Math.abs(r.totalAngle) / (2 * Math.PI));
+// ── State ─────────────────────────────────────────────────────────────────
+let track = buildTrack('ring');
+let robots = [], obstacles = [];
+let paused = false, obsMode = false;
+let fpsFr = 0, fpsT = performance.now();
+
+// ── Init/reset ────────────────────────────────────────────────────────────
+function initSim() {
+    const nS = +document.getElementById('nS').value;
+    const nR = +document.getElementById('nR').value;
+    robots = [];
+    for (let s = 0; s < nS; s++) {
+        const dir = s % 2 === 0 ? 1 : -1;
+        const color = COLORS[s % COLORS.length];
+        for (let i = 0; i < nR; i++) {
+            const t0 = ((s / nS) + (i / nR) / nS) % 1;
+            const p = track.getPoint(t0);
+            const tg = track.getTangent(t0);
+            const nx = -tg[1], ny = tg[0];
+            const off = (Math.random() - 0.5) * track.hw * 0.65;
+            robots.push({
+                x: p[0]+nx*off, y: p[1]+ny*off,
+                vx: 0, vy: 0,
+                color, dir, swarm: s,
+                id: s * nR + i,
+                t: t0, totalT: 0, laps: 0
             });
         }
+    }
+    ctx.fillStyle = '#000';
+    ctx.fillRect(0, 0, W, H);
+    refreshStats();
+}
 
-        function draw() {
-            const trailAlpha = parseFloat(document.getElementById('trailAlpha').value);
+function respawn() {
+    document.getElementById('lS').innerText = document.getElementById('nS').value;
+    document.getElementById('lR').innerText = document.getElementById('nR').value;
+    initSim();
+}
 
-            // Trail fade overlay
-            ctx.fillStyle = `rgba(0, 0, 0, ${trailAlpha})`;
-            ctx.fillRect(0, 0, canvas.width, canvas.height);
+function setTrack(type) {
+    track = buildTrack(type);
+    document.querySelectorAll('.map').forEach(b => b.classList.remove('on'));
+    document.getElementById('t-' + type).classList.add('on');
+    initSim();
+}
 
-            // Track (fresh each frame so boundaries stay crisp over trails)
-            // Outer glow
-            ctx.save();
-            ctx.shadowBlur = 18;
-            ctx.shadowColor = 'rgba(60,80,180,0.3)';
+// ── Obstacles ─────────────────────────────────────────────────────────────
+function toggleObs() {
+    obsMode = !obsMode;
+    document.getElementById('bObs').classList.toggle('on', obsMode);
+    canvas.classList.toggle('obs-mode', obsMode);
+}
+function clearObs() { obstacles = []; refreshStats(); }
 
-            ctx.strokeStyle = '#2a2a3a';
-            ctx.lineWidth = 3;
-            ctx.beginPath(); ctx.arc(cx, cy, R_inner, 0, Math.PI * 2); ctx.stroke();
-            ctx.beginPath(); ctx.arc(cx, cy, R_outer, 0, Math.PI * 2); ctx.stroke();
-            ctx.restore();
+canvas.addEventListener('click', e => {
+    if (!obsMode) return;
+    const r = canvas.getBoundingClientRect();
+    const mx = (e.clientX - r.left) * (W / r.width);
+    const my = (e.clientY - r.top)  * (H / r.height);
+    const hit = obstacles.findIndex(o => (o.x-mx)**2 + (o.y-my)**2 < (o.r+8)**2);
+    if (hit >= 0) obstacles.splice(hit, 1);
+    else          obstacles.push({ x: mx, y: my, r: 18 });
+    refreshStats();
+});
 
-            // Dashed center lane
-            ctx.strokeStyle = '#1e1e2e';
-            ctx.lineWidth = 1;
-            ctx.setLineDash([10, 14]);
-            ctx.beginPath(); ctx.arc(cx, cy, (R_inner + R_outer) / 2, 0, Math.PI * 2); ctx.stroke();
-            ctx.setLineDash([]);
+// ── Physics ───────────────────────────────────────────────────────────────
+function update() {
+    const spd = +document.getElementById('spd').value;
+    const col = +document.getElementById('col').value;
+    const hw  = track.hw;
 
-            // Finish line at angle 0 (rightmost point)
-            const finishInner = R_inner + 2, finishOuter = R_outer - 2;
-            ctx.strokeStyle = 'rgba(255,255,255,0.55)';
-            ctx.lineWidth = 2;
-            ctx.setLineDash([4, 4]);
-            ctx.beginPath();
-            ctx.moveTo(cx + finishInner, cy);
-            ctx.lineTo(cx + finishOuter, cy);
-            ctx.stroke();
-            ctx.setLineDash([]);
+    for (const r of robots) {
+        let fx = 0, fy = 0;
 
-            // Robots as glowing directional triangles
-            robots.forEach(r => {
-                const speed = Math.sqrt(r.vx * r.vx + r.vy * r.vy) || 0.001;
-                const angle = Math.atan2(r.vy, r.vx);
-                const size  = 5.5;
+        // Nearest track point (local window search)
+        const nt = track.nearestFrom(r.x, r.y, r.t);
+        const np = track.getPoint(nt);
+        const tg = track.getTangent(nt);
 
-                ctx.save();
-                ctx.translate(r.x, r.y);
-                ctx.rotate(angle);
+        // 1. Tangential drive along track
+        fx += tg[0] * r.dir * spd;
+        fy += tg[1] * r.dir * spd;
 
-                ctx.shadowBlur = 10;
-                ctx.shadowColor = r.color;
-                ctx.fillStyle = r.color;
-                ctx.beginPath();
-                ctx.moveTo(size * 1.6, 0);
-                ctx.lineTo(-size * 0.8,  size * 0.75);
-                ctx.lineTo(-size * 0.8, -size * 0.75);
-                ctx.closePath();
-                ctx.fill();
+        // 2. Centerline attraction (soft inner, hard outer)
+        const toX = np[0]-r.x, toY = np[1]-r.y;
+        const dc = Math.sqrt(toX*toX + toY*toY) || 0.001;
+        const k = dc > hw * 0.82 ? 0.55 : dc > hw * 0.45 ? 0.09 : 0;
+        if (k > 0) { fx += toX * k; fy += toY * k; }
 
-                ctx.restore();
-            });
-        }
-
-        function updateSwarmStats() {
-            const numSwarms = parseInt(document.getElementById('numSwarms').value);
-            const perSwarm  = parseInt(document.getElementById('robotsPerSwarm').value);
-            const container = document.getElementById('swarmStats');
-
-            let html = '';
-            for (let s = 0; s < numSwarms; s++) {
-                const color = COLORS[s % COLORS.length];
-                const name  = NAMES[s % NAMES.length];
-                const dir   = s % 2 === 0 ? 'CW' : 'CCW';
-                const swarmRobots = robots.filter(r => r.swarm === s);
-                const maxLaps = swarmRobots.length > 0 ? Math.max(...swarmRobots.map(r => r.laps)) : 0;
-                html += `
-                    <div class="swarm-row">
-                        <div class="swarm-dot" style="background:${color};box-shadow:0 0 5px ${color}"></div>
-                        <span class="swarm-name">${name}</span>
-                        <span class="swarm-dir">${dir}</span>
-                        <span class="swarm-laps">${maxLaps} lap${maxLaps !== 1 ? 's' : ''}</span>
-                    </div>`;
+        // 3. Robot–robot repulsion
+        for (const o of robots) {
+            if (o.id === r.id) continue;
+            const dx = r.x-o.x, dy = r.y-o.y;
+            const d = Math.sqrt(dx*dx+dy*dy) || 0.001;
+            const same = r.swarm === o.swarm;
+            const sd = same ? 15 : 21, mult = same ? 0.04 : 0.07;
+            if (d < sd) {
+                const f = (sd - d) * col * mult;
+                fx += (dx/d)*f; fy += (dy/d)*f;
             }
-            container.innerHTML = html;
         }
 
-        let statsTimer = 0;
-        function loop() {
-            if (paused) return;
-
-            update();
-            draw();
-
-            // FPS
-            fpsFrames++;
-            const now = performance.now();
-            if (now - fpsLastTime >= 500) {
-                fpsDisplay = Math.round(fpsFrames / ((now - fpsLastTime) / 1000));
-                fpsFrames = 0;
-                fpsLastTime = now;
-                document.getElementById('fpsLine').innerText = `${fpsDisplay} fps`;
-                updateSwarmStats();
+        // 4. Obstacle repulsion
+        for (const obs of obstacles) {
+            const dx = r.x-obs.x, dy = r.y-obs.y;
+            const d = Math.sqrt(dx*dx+dy*dy) || 0.001;
+            const sd = obs.r + 34;
+            if (d < sd) {
+                const f = ((sd-d)/sd) * 4.2;
+                fx += (dx/d)*f; fy += (dy/d)*f;
             }
-
-            rafId = requestAnimationFrame(loop);
         }
 
-        initSimulation();
-        loop();
-    </script>
+        // 5. Jitter
+        fx += (Math.random()-0.5) * 0.25;
+        fy += (Math.random()-0.5) * 0.25;
+
+        // Inertia blend
+        r.vx = r.vx * 0.75 + fx * 0.25;
+        r.vy = r.vy * 0.75 + fy * 0.25;
+        r.x += r.vx;
+        r.y += r.vy;
+
+        // Lap tracking: accumulate signed t-delta
+        const newT = track.nearestFrom(r.x, r.y, nt);
+        let dt = newT - r.t;
+        if (dt >  0.5) dt -= 1;
+        if (dt < -0.5) dt += 1;
+        r.totalT += dt * r.dir;
+        r.t = newT;
+        r.laps = Math.max(0, Math.floor(r.totalT));
+    }
+}
+
+// ── Drawing ───────────────────────────────────────────────────────────────
+function draw() {
+    const ta = +document.getElementById('trl').value;
+
+    // Trail fade
+    ctx.fillStyle = `rgba(0,0,0,${ta})`;
+    ctx.fillRect(0, 0, W, H);
+
+    // Blit prerendered track (stays sharp over trails)
+    ctx.drawImage(track.off, 0, 0);
+
+    // Obstacles
+    for (const obs of obstacles) {
+        ctx.save();
+        ctx.shadowBlur = 16; ctx.shadowColor = '#ff2222';
+        ctx.fillStyle = '#1e0808';
+        ctx.strokeStyle = '#aa1a1a'; ctx.lineWidth = 2;
+        ctx.beginPath(); ctx.arc(obs.x, obs.y, obs.r, 0, Math.PI*2);
+        ctx.fill(); ctx.stroke();
+        ctx.shadowBlur = 0; ctx.strokeStyle = '#cc3030'; ctx.lineWidth = 1.5;
+        const s = obs.r * 0.52;
+        ctx.beginPath();
+        ctx.moveTo(obs.x-s, obs.y-s); ctx.lineTo(obs.x+s, obs.y+s);
+        ctx.moveTo(obs.x+s, obs.y-s); ctx.lineTo(obs.x-s, obs.y+s);
+        ctx.stroke();
+        ctx.restore();
+    }
+
+    // Robots (glowing directional triangles)
+    for (const r of robots) {
+        const ang = Math.atan2(r.vy, r.vx);
+        const sz = 5.5;
+        ctx.save();
+        ctx.translate(r.x, r.y); ctx.rotate(ang);
+        ctx.shadowBlur = 9; ctx.shadowColor = r.color;
+        ctx.fillStyle = r.color;
+        ctx.beginPath();
+        ctx.moveTo(sz*1.6, 0);
+        ctx.lineTo(-sz*0.8,  sz*0.75);
+        ctx.lineTo(-sz*0.8, -sz*0.75);
+        ctx.closePath(); ctx.fill();
+        ctx.restore();
+    }
+}
+
+// ── Stats ─────────────────────────────────────────────────────────────────
+function refreshStats() {
+    const nS = +document.getElementById('nS').value;
+    const nR = +document.getElementById('nR').value;
+    let html = '';
+    for (let s = 0; s < nS; s++) {
+        const c  = COLORS[s % COLORS.length];
+        const sr = robots.filter(r => r.swarm === s);
+        const ml = sr.length ? Math.max(...sr.map(r => r.laps)) : 0;
+        const dir = s % 2 === 0 ? 'CW' : 'CCW';
+        html += `<div class="sr">
+            <div class="dot" style="background:${c};box-shadow:0 0 4px ${c}80"></div>
+            <span class="sn">${NAMES[s]}</span>
+            <span class="sd">${dir}</span>
+            <span class="sl">${ml}L</span>
+        </div>`;
+    }
+    document.getElementById('ss').innerHTML = html;
+    document.getElementById('meta').innerText = `Robots: ${nS*nR} | Obs: ${obstacles.length}`;
+}
+
+// ── Main loop ─────────────────────────────────────────────────────────────
+function togglePause() {
+    paused = !paused;
+    const b = document.getElementById('bPause');
+    b.textContent = paused ? 'Resume' : 'Pause';
+    b.classList.toggle('on', paused);
+    if (!paused) loop();
+}
+
+function loop() {
+    if (paused) return;
+    update(); draw();
+    fpsFr++;
+    const now = performance.now();
+    if (now - fpsT >= 600) {
+        document.getElementById('fps').innerText = Math.round(fpsFr/(now-fpsT)*1000) + ' fps';
+        fpsFr = 0; fpsT = now;
+        refreshStats();
+    }
+    requestAnimationFrame(loop);
+}
+
+initSim();
+loop();
+</script>
 </body>
 </html>
