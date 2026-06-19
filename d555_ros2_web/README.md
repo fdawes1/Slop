@@ -26,10 +26,20 @@ rs-dds-config --eth-first
 cat ~/.realsense-config.json
 ```
 
+## First-time setup: stage librealsense2
+
+`librealsense_staged/` is not in git — it's a local build context populated from the host's pre-built librealsense2 2.58 (with DDS/network support). Run this once before the first build, and again if you rebuild librealsense on the host:
+
+```bash
+./prepare-build.sh
+```
+
+This copies the relevant `.so`, `.a`, headers, and CMake configs from `/usr/local` into `librealsense_staged/`. Requires librealsense2 2.58 with DDS support already built and installed on the host Ubuntu machine.
+
 ## Build
 
 ```bash
-docker build -t realsense-ros2-d555:humble .
+docker compose build
 ```
 
 ## Run
