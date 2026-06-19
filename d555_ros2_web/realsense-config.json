@@ -1,0 +1,13 @@
+{
+    "context": {
+        "dds": {
+            "enabled": true,
+            "domain": 0,
+            "device-initialization-timeout-ms": 10000,
+            "query-devices-max": 30,
+            "udp": {
+                "whitelist": ["2.2.2.201"]
+            }
+        }
+    }
+}

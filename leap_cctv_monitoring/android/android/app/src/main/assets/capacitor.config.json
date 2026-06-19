@@ -1,0 +1,9 @@
+{
+	"appId": "ai.helloleap.cctv",
+	"appName": "Leap CCTV",
+	"webDir": "www",
+	"android": {
+		"allowMixedContent": true,
+		"backgroundColor": "#111117"
+	}
+}

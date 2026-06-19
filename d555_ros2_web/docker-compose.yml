@@ -1,0 +1,56 @@
+services:
+  d555_261422303060:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: realsense-ros2-d555:jazzy
+    container_name: d555_261422303060
+    network_mode: host
+    ipc: host
+    privileged: true
+    environment:
+      - ROS_DOMAIN_ID=1
+      - RMW_IMPLEMENTATION=rmw_fastrtps_cpp
+    volumes:
+      - /dev:/dev
+      - /run/udev:/run/udev:ro
+      - ./realsense-config.json:/root/.realsense-config.json:ro
+    command: |
+      bash -lc 'source /opt/ros/jazzy/setup.bash && source /ros2_ws/install/setup.bash && ros2 launch realsense2_camera rs_launch.py serial_no:=\"261422303060\" camera_name:=d555_261422303060 camera_namespace:=cameras enable_color:=true enable_depth:=true align_depth.enable:=true pointcloud.enable:=false'
+    restart: on-failure
+  d555_depth_colorizer:
+    image: realsense-ros2-d555:jazzy
+    container_name: d555_depth_colorizer
+    network_mode: host
+    ipc: host
+    environment:
+      - ROS_DOMAIN_ID=1
+      - RMW_IMPLEMENTATION=rmw_fastrtps_cpp
+    volumes:
+      - ./depth_colorizer.py:/depth_colorizer.py:ro
+    command: |
+      bash -lc 'source /opt/ros/jazzy/setup.bash && python3 /depth_colorizer.py'
+    depends_on:
+      - d555_261422303060
+    restart: unless-stopped
+  d555_web_video_server:
+    image: realsense-ros2-d555:jazzy
+    container_name: d555_web_video_server
+    network_mode: host
+    ipc: host
+    environment:
+      - ROS_DOMAIN_ID=1
+      - RMW_IMPLEMENTATION=rmw_fastrtps_cpp
+    command: |
+      bash -lc 'source /opt/ros/jazzy/setup.bash && ros2 run web_video_server web_video_server --ros-args -p port:=8080'
+    depends_on:
+      - d555_261422303060
+    restart: unless-stopped
+  d555_html:
+    image: nginx:alpine
+    container_name: d555_html
+    network_mode: host
+    volumes:
+      - ./d555_web:/usr/share/nginx/html:ro
+      - ./nginx.conf:/etc/nginx/conf.d/default.conf:ro
+    restart: unless-stopped

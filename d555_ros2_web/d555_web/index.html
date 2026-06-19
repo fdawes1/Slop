@@ -1,0 +1,74 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>D555 Camera Feed</title>
+  <style>
+    body {
+      font-family: sans-serif;
+      background: #111;
+      color: #eee;
+      margin: 0;
+      padding: 20px;
+    }
+
+    h1 {
+      margin-top: 0;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(480px, 1fr));
+      gap: 20px;
+    }
+
+    .card {
+      background: #1d1d1d;
+      border-radius: 10px;
+      padding: 15px;
+    }
+
+    img {
+      width: 100%;
+      max-width: 960px;
+      background: #000;
+      border-radius: 6px;
+    }
+
+    code {
+      color: #9ee;
+    }
+  </style>
+</head>
+<body>
+  <h1>D555 Camera Feed</h1>
+
+  <p>
+    Camera serial:
+    <code>261422303060</code>
+  </p>
+
+  <div class="grid">
+    <div class="card">
+      <h2>Colour</h2>
+      <img
+        src="/stream?topic=/cameras/d555_261422303060/color/image_raw&type=mjpeg&quality=80"
+        alt="D555 colour stream">
+    </div>
+
+    <div class="card">
+      <h2>Depth aligned to colour</h2>
+      <img
+        src="/stream?topic=/cameras/d555_261422303060/aligned_depth_to_color/image_colorized&type=mjpeg&quality=80"
+        alt="D555 aligned depth stream">
+    </div>
+
+    <div class="card">
+      <h2>Raw depth</h2>
+      <img
+        src="/stream?topic=/cameras/d555_261422303060/depth/image_colorized&type=mjpeg&quality=80"
+        alt="D555 raw depth stream">
+    </div>
+  </div>
+</body>
+</html>

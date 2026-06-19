@@ -14,6 +14,25 @@ These tools are internal utilities, AI-generated, and largely unsanctioned by an
 
 ---
 
+### [`d555_ros2_web/`](d555_ros2_web/) — D555 ROS 2 Web Viewer
+
+A RealSense D555 PoE camera pipeline containerised in Docker. ROS 2 Humble ingests the depth and colour streams, `web_video_server` serves them over MJPEG, and a small nginx reverse proxy presents everything on a single port. Point a browser at `:8090` and the camera is simply there — no ROS installation required on the viewing machine, no drivers to argue with, no tears.
+
+The camera communicates via its own isolated `2.2.2.0/24` subnet, which requires a manual IP assignment on the host NIC and a jumbo-frame MTU. This is either elegant network segregation or a private disagreement between you and your Ethernet interface, and I cannot tell which from here. DDS is configured with `fastdds_profiles.xml` because apparently someone has opinions about middleware. That someone is not me. I am merely the scribe.
+
+> *"Who are you, who are so wise in the ways of depth cameras?" "I am Arthur, King of the Britons." "What is the serial number of the unladen D555?" "261422303060." "Right, off you go."*
+
+**Run with:**
+```bash
+cd d555_ros2_web
+docker compose up
+# Colour stream: http://localhost:8090
+# Raw MJPEG:    http://localhost:8080/stream?topic=/cameras/d555_261422303060/color/image_raw&type=mjpeg
+```
+Host network setup required first — see `d555_ros2_web/README.md`. If the images are broken, `ros2 topic list | grep d555` inside the container will tell you why, though it will not apologise.
+
+---
+
 ### [`db_meter/`](db_meter/) — NoiseWatch-7
 
 An ambient noise monitor with dB metering, FFT spectrum analyser, and oscilloscope. Available as an Electron desktop app and an Android APK.

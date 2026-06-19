@@ -1,0 +1,784 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <title>Leap CCTV</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@600;700;800&family=Albert+Sans:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet">
+  <style>
+    /* ── Design tokens ───────────────────────────────────────────────── */
+    :root {
+      --bg-base:     #111117;
+      --bg-surface:  #1a1a24;
+      --bg-sidebar:  #14141d;
+      --bg-controls: #1a1a24;
+      --bg-log:      #111117;
+      --bg-header:   #1a1a24;
+      --text-header: #e8e8f0;
+      --text-1:      #e8e8f0;
+      --text-2:      #9898b0;
+      --text-3:      #4a4a60;
+      --border:      #26263a;
+      --accent:      #6472c8;
+      --accent-h:    #7585d8;
+      --cyan:        #52C6DA;
+      --teal:        #63C2A2;
+      --shadow:      0 2px 14px rgba(0,0,0,0.5);
+      --shadow-modal:0 8px 40px rgba(0,0,0,0.7);
+      --radius:      10px;
+      --transition:  0.25s ease;
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Albert Sans', system-ui, sans-serif;
+      background: var(--bg-base);
+      color: var(--text-1);
+      height: 100vh;
+      display: flex; flex-direction: column;
+      overflow: hidden;
+    }
+
+    /* ── Modal ───────────────────────────────────────────────────────── */
+    #setup-modal {
+      position: fixed; inset: 0;
+      background: rgba(20,20,40,0.85);
+      backdrop-filter: blur(6px);
+      display: flex; align-items: center; justify-content: center;
+      z-index: 200;
+    }
+    .modal-box {
+      background: var(--bg-surface);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      padding: 2.5rem 2rem;
+      width: 360px;
+      box-shadow: var(--shadow-modal);
+    }
+    .modal-logo {
+      display: flex; align-items: center; gap: 0.5rem;
+      margin-bottom: 1.5rem;
+    }
+    .modal-logo .logo-dot {
+      width: 10px; height: 10px; border-radius: 50%;
+      background: linear-gradient(135deg, var(--accent) 0%, var(--cyan) 100%);
+    }
+    .modal-logo span {
+      font-family: 'Poppins', sans-serif;
+      font-weight: 800; font-size: 1rem;
+      color: var(--accent); letter-spacing: 0.02em;
+    }
+    .modal-box h2 {
+      font-family: 'Poppins', sans-serif;
+      font-weight: 700; font-size: 1.3rem;
+      color: var(--text-1); margin-bottom: 0.4rem;
+    }
+    .modal-box p { font-size: 0.85rem; color: var(--text-3); margin-bottom: 1.5rem; }
+    .modal-box input {
+      width: 100%; padding: 0.7rem 1rem;
+      background: var(--bg-base);
+      border: 2px solid var(--border);
+      border-radius: var(--radius);
+      color: var(--text-1); font-family: 'Albert Sans', sans-serif;
+      font-size: 0.95rem; margin-bottom: 1rem; outline: none;
+      transition: border-color var(--transition);
+    }
+    .modal-box input:focus { border-color: var(--accent); }
+    .modal-box button {
+      width: 100%; padding: 0.75rem;
+      background: var(--accent); color: #fff;
+      border: none; border-radius: var(--radius);
+      font-family: 'Poppins', sans-serif;
+      font-size: 0.95rem; font-weight: 800; cursor: pointer;
+      transition: background var(--transition), transform 0.1s;
+    }
+    .modal-box button:hover  { background: var(--accent-h); }
+    .modal-box button:active { transform: scale(0.97); }
+    .modal-box button:disabled { opacity: 0.6; cursor: default; }
+    .modal-error {
+      margin-top: 0.7rem; padding: 0.45rem 0.75rem;
+      background: rgba(220,38,38,0.08);
+      border: 1px solid rgba(220,38,38,0.25);
+      border-radius: var(--radius);
+      font-size: 0.8rem; color: #f87171; display: none;
+    }
+
+    /* ── Header ──────────────────────────────────────────────────────── */
+    header {
+      display: flex; align-items: center; gap: 0.75rem;
+      padding: 0 1rem; height: 44px;
+      background: var(--bg-header);
+      border-bottom: 1px solid rgba(255,255,255,0.08);
+      flex-shrink: 0;
+    }
+    .header-brand { display: flex; align-items: center; gap: 0.45rem; margin-right: 0.5rem; }
+    .header-brand .dot {
+      width: 8px; height: 8px; border-radius: 50%;
+      background: linear-gradient(135deg, var(--cyan) 0%, var(--teal) 100%);
+    }
+    .header-brand span {
+      font-family: 'Poppins', sans-serif; font-weight: 800; font-size: 0.88rem;
+      color: var(--text-header); letter-spacing: 0.03em;
+    }
+    .h-sep { color: rgba(255,255,255,0.2); font-size: 0.8rem; }
+    #header-unit  { font-size: 0.8rem; font-weight: 700; color: var(--cyan); font-family: 'Poppins', sans-serif; }
+    #header-time  { font-size: 0.78rem; color: var(--text-3); font-family: monospace; }
+    .spacer { flex: 1; }
+    #event-count-header { font-size: 0.75rem; color: var(--text-3); font-family: 'Albert Sans', sans-serif; }
+
+    .btn-download {
+      padding: 0.3rem 0.75rem;
+      background: transparent; color: var(--cyan);
+      border: 1.5px solid var(--cyan); border-radius: var(--radius);
+      font-family: 'Poppins', sans-serif; font-size: 0.75rem; font-weight: 700; cursor: pointer;
+      transition: background var(--transition), color var(--transition);
+    }
+    .btn-download:hover { background: var(--cyan); color: #111; }
+
+    /* ── Layout ──────────────────────────────────────────────────────── */
+    #app { display: none; flex-direction: column; flex: 1; overflow: hidden; }
+    .layout { display: flex; flex: 1; overflow: hidden; }
+
+    /* ── Sidebar ─────────────────────────────────────────────────────── */
+    aside {
+      width: 216px; flex-shrink: 0;
+      background: var(--bg-sidebar); border-right: 1px solid var(--border);
+      display: flex; flex-direction: column; overflow: hidden;
+    }
+    .sb-section { padding: 0.65rem 0.8rem; border-bottom: 1px solid var(--border); flex-shrink: 0; }
+    .sb-section label {
+      display: block; font-family: 'Poppins', sans-serif;
+      font-size: 0.6rem; font-weight: 700; color: var(--text-3);
+      text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 0.4rem;
+    }
+    aside select {
+      width: 100%; padding: 0.4rem 0.6rem;
+      background: var(--bg-surface); border: 1.5px solid var(--border);
+      border-radius: var(--radius); color: var(--text-1);
+      font-family: 'Albert Sans', sans-serif; font-size: 0.82rem; cursor: pointer; outline: none;
+    }
+    aside select:focus { border-color: var(--accent); }
+    #video-list { flex: 1; overflow-y: auto; padding: 0.4rem 0; }
+    .vi {
+      padding: 0.45rem 0.8rem; cursor: pointer; font-size: 0.8rem;
+      color: var(--text-3); border-left: 3px solid transparent;
+      display: flex; align-items: center; gap: 0.5rem;
+    }
+    .vi:hover  { background: var(--bg-surface); color: var(--text-1); }
+    .vi.active { background: var(--bg-surface); color: var(--accent); border-left-color: var(--accent); }
+    .vi .vi-time { font-family: 'Poppins', sans-serif; font-weight: 600; font-size: 0.8rem; font-variant-numeric: tabular-nums; }
+    .vi .vi-preload { margin-left: auto; font-size: 0.55rem; color: var(--teal); opacity: 0; transition: opacity 0.3s; }
+    .vi .vi-preload.ready { opacity: 1; }
+    .vi-empty { padding: 0.8rem; font-size: 0.78rem; color: var(--text-3); text-align: center; }
+
+    /* ── Player ──────────────────────────────────────────────────────── */
+    main { flex: 1; display: flex; flex-direction: column; overflow: hidden; min-width: 0; }
+    .player-wrap {
+      flex: 1; background: #000; position: relative;
+      display: flex; align-items: center; justify-content: center;
+      overflow: hidden; min-height: 0;
+    }
+    .player-wrap video { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; }
+    #player-b { display: none; }
+    .ts-overlay {
+      position: absolute; top: 0.65rem; left: 0.65rem;
+      background: rgba(0,0,0,0.6); color: #fff; font-size: 0.78rem; font-family: monospace;
+      padding: 0.25rem 0.6rem; border-radius: 6px; pointer-events: none;
+    }
+    .loading-overlay {
+      position: absolute; inset: 0; display: none;
+      align-items: center; justify-content: center;
+      background: rgba(0,0,0,0.55); font-family: 'Poppins', sans-serif;
+      font-size: 0.85rem; color: var(--cyan); letter-spacing: 0.05em;
+    }
+    .loading-overlay.show { display: flex; }
+    .no-video-msg { position: absolute; font-family: 'Albert Sans', sans-serif; color: #555; font-size: 0.9rem; }
+
+    /* ── Controls ────────────────────────────────────────────────────── */
+    .controls {
+      background: var(--bg-controls); border-top: 1px solid var(--border);
+      padding: 0.6rem 1rem; display: flex; align-items: center; gap: 1rem; flex-shrink: 0;
+      flex-wrap: wrap;
+    }
+    .product-wrap {
+      display: flex; align-items: center; gap: 0.5rem;
+      font-size: 0.78rem; color: var(--text-3); font-family: 'Poppins', sans-serif; font-weight: 600;
+    }
+    .product-wrap input {
+      padding: 0.38rem 0.7rem; background: var(--bg-base);
+      border: 1.5px solid var(--border); border-radius: var(--radius);
+      color: var(--text-1); font-family: 'Albert Sans', sans-serif;
+      font-size: 0.82rem; width: 140px; outline: none;
+    }
+    .product-wrap input:focus { border-color: var(--accent); }
+
+    .action-btns { display: flex; gap: 0.5rem; flex-wrap: wrap; }
+    .action-btns button {
+      padding: 0.48rem 1rem; border: none; border-radius: var(--radius);
+      font-family: 'Poppins', sans-serif; font-size: 0.85rem; font-weight: 800; cursor: pointer;
+      transition: filter 0.12s, transform 0.1s; box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+    }
+    .action-btns button:hover  { filter: brightness(1.15); }
+    .action-btns button:active { transform: scale(0.94); }
+    .btn-good   { background: #16a34a; color: #fff; }
+    .btn-bad    { background: #dc2626; color: #fff; }
+    .btn-issue  { background: #d97706; color: #fff; }
+    .btn-reject { background: #7c3aed; color: #fff; }
+    .btn-undo {
+      padding: 0.48rem 1rem; background: transparent;
+      border: 1.5px solid var(--border); border-radius: var(--radius);
+      font-family: 'Poppins', sans-serif; font-size: 0.85rem; font-weight: 800;
+      color: var(--text-3); cursor: pointer;
+      transition: border-color var(--transition), color var(--transition);
+    }
+    .btn-undo:hover { border-color: var(--accent); color: var(--accent); }
+    .key { font-size: 0.6rem; font-weight: 400; opacity: 0.5; }
+
+    .speed-wrap {
+      display: flex; align-items: center; gap: 0.3rem;
+      font-family: 'Poppins', sans-serif; font-size: 0.75rem; font-weight: 700; color: var(--text-3);
+    }
+    .speed-wrap button {
+      padding: 0.28rem 0.5rem; background: var(--bg-base);
+      border: 1.5px solid var(--border); border-radius: var(--radius);
+      font-family: 'Poppins', sans-serif; font-size: 0.72rem; font-weight: 700;
+      color: var(--text-2); cursor: pointer;
+      transition: background var(--transition), border-color var(--transition), color var(--transition);
+    }
+    .speed-wrap button.active { background: var(--accent); border-color: var(--accent); color: #fff; }
+    .speed-wrap button:hover:not(.active) { border-color: var(--accent); color: var(--accent); }
+
+    /* ── Event log ───────────────────────────────────────────────────── */
+    .event-log {
+      height: 138px; overflow-y: auto;
+      background: var(--bg-log); border-top: 1px solid var(--border); flex-shrink: 0;
+    }
+    .event-log table { width: 100%; border-collapse: collapse; font-size: 0.75rem; }
+    .event-log thead th {
+      padding: 0.3rem 0.75rem; text-align: left;
+      font-family: 'Poppins', sans-serif; font-size: 0.6rem; font-weight: 700;
+      color: var(--text-3); text-transform: uppercase; letter-spacing: 0.07em;
+      position: sticky; top: 0; background: var(--bg-sidebar); border-bottom: 1px solid var(--border);
+    }
+    .event-log tbody td { padding: 0.28rem 0.75rem; color: var(--text-2); border-bottom: 1px solid var(--border); }
+    .event-log tbody tr:hover td { background: var(--bg-surface); }
+    .s-good   { color: #4ade80; font-weight: 700; }
+    .s-bad    { color: #f87171; font-weight: 700; }
+    .s-issue  { color: #fbbf24; font-weight: 700; }
+    .s-reject { color: #a78bfa; font-weight: 700; }
+
+    /* ── Scrollbar ───────────────────────────────────────────────────── */
+    ::-webkit-scrollbar { width: 5px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+
+    /* ── Flash animations ────────────────────────────────────────── */
+    @keyframes flash-good   { 0%,100%{background:#16a34a} 50%{background:#22c55e} }
+    @keyframes flash-bad    { 0%,100%{background:#dc2626} 50%{background:#ef4444} }
+    @keyframes flash-issue  { 0%,100%{background:#d97706} 50%{background:#f59e0b} }
+    @keyframes flash-reject { 0%,100%{background:#7c3aed} 50%{background:#8b5cf6} }
+    .flash-good   { animation: flash-good   0.18s ease; }
+    .flash-bad    { animation: flash-bad    0.18s ease; }
+    .flash-issue  { animation: flash-issue  0.18s ease; }
+    .flash-reject { animation: flash-reject 0.18s ease; }
+  </style>
+</head>
+<body>
+
+<!-- ── Setup modal ─────────────────────────────────────────────────────── -->
+<div id="setup-modal">
+  <div class="modal-box">
+    <div class="modal-logo">
+      <div class="logo-dot"></div>
+      <span>Leap CCTV</span>
+    </div>
+    <h2>Sign in to start</h2>
+    <p>Connect to HiDrive to access CCTV footage.</p>
+    <input id="hd-user" type="email"    placeholder="HiDrive username" autocomplete="username">
+    <input id="hd-pass" type="password" placeholder="HiDrive password" autocomplete="current-password">
+    <input id="operator-input" type="text" placeholder="Your name" autocomplete="name">
+    <button id="modal-start-btn" onclick="startSession()">Start Session</button>
+    <div id="modal-error" class="modal-error"></div>
+  </div>
+</div>
+
+<!-- ── Main app ────────────────────────────────────────────────────────── -->
+<div id="app">
+  <header>
+    <div class="header-brand"><div class="dot"></div><span>Leap CCTV</span></div>
+    <span class="h-sep">|</span>
+    <span id="header-unit">—</span>
+    <span class="h-sep">|</span>
+    <span id="header-time">—</span>
+    <span class="spacer"></span>
+    <span id="event-count-header">0 events</span>
+    <button class="btn-download" onclick="downloadCSV()">Share CSV</button>
+  </header>
+
+  <div class="layout">
+    <aside>
+      <div class="sb-section">
+        <label>Unit</label>
+        <select id="unit-select" onchange="onUnitChange()">
+          <option value="">Select unit…</option>
+        </select>
+      </div>
+      <div class="sb-section">
+        <label>Date</label>
+        <select id="date-select" onchange="onDateChange()" disabled>
+          <option value="">Select date…</option>
+        </select>
+      </div>
+      <ul id="video-list"></ul>
+    </aside>
+
+    <main>
+      <div class="player-wrap" id="player-wrap">
+        <video id="player-a" preload="auto" playsinline></video>
+        <video id="player-b" preload="auto" playsinline></video>
+        <div class="ts-overlay" id="ts-overlay">—</div>
+        <div class="loading-overlay" id="loading-overlay">Loading…</div>
+        <span class="no-video-msg" id="no-video-msg">Select a video from the sidebar</span>
+      </div>
+
+      <div class="controls">
+        <div class="product-wrap">
+          <span>Product</span>
+          <input id="product-input" type="text" value="mixed leaf" placeholder="Product">
+        </div>
+        <div class="action-btns">
+          <button class="btn-good"   id="btn-good"   onclick="logEvent('Good')">Good   <span class="key">[G]</span></button>
+          <button class="btn-bad"    id="btn-bad"    onclick="logEvent('Bad')">Bad     <span class="key">[B]</span></button>
+          <button class="btn-issue"  id="btn-issue"  onclick="logEvent('Issue')">Issue  <span class="key">[I]</span></button>
+          <button class="btn-reject" id="btn-reject" onclick="logEvent('Reject')">Reject <span class="key">[R]</span></button>
+          <button class="btn-undo"   id="btn-undo"   onclick="undoEvent()">Undo   <span class="key">[U]</span></button>
+        </div>
+        <div class="speed-wrap">
+          <span>Speed</span>
+          <button onclick="setSpeed(0.75)" data-speed="0.75">0.75×</button>
+          <button onclick="setSpeed(1)"    data-speed="1" class="active">1×</button>
+          <button onclick="setSpeed(1.5)"  data-speed="1.5">1.5×</button>
+          <button onclick="setSpeed(2)"    data-speed="2">2×</button>
+        </div>
+      </div>
+
+      <div class="event-log">
+        <table>
+          <thead><tr><th>Real time</th><th>Status</th><th>Product</th><th>Unit</th></tr></thead>
+          <tbody id="log-tbody"></tbody>
+        </table>
+      </div>
+    </main>
+  </div>
+</div>
+
+<script src="capacitor.js"></script>
+<script>
+// ── Config ─────────────────────────────────────────────────────────────────
+const PROXY_PORT = 18765;
+const BASE       = `http://127.0.0.1:${PROXY_PORT}`;
+
+// ── State ──────────────────────────────────────────────────────────────────
+let operator    = null;
+let unitVideos  = [];
+let currentIdx  = -1;
+let currentUnit = null;
+let logRows     = [];
+let eventCount  = 0;
+
+// ── Dual-player ────────────────────────────────────────────────────────────
+const players  = [document.getElementById('player-a'), document.getElementById('player-b')];
+let activeSlot = 0;
+const playerSrc = ['', ''];
+
+function activePlayer() { return players[activeSlot]; }
+function bgPlayer()     { return players[1 - activeSlot]; }
+
+players.forEach((p, slot) => {
+  p.addEventListener('timeupdate', () => {
+    if (slot !== activeSlot || currentIdx < 0) return;
+    const start = new Date(unitVideos[currentIdx].start_iso);
+    const real  = new Date(start.getTime() + p.currentTime * 1000);
+    document.getElementById('ts-overlay').textContent  = fmtTs(real);
+    document.getElementById('header-time').textContent = fmtTs(real);
+  });
+  p.addEventListener('waiting', () => {
+    if (slot !== activeSlot) return;
+    document.getElementById('loading-overlay').classList.add('show');
+  });
+  p.addEventListener('canplay', () => {
+    if (slot !== activeSlot) return;
+    document.getElementById('loading-overlay').classList.remove('show');
+    schedulePreload(currentIdx + 1);
+  });
+  p.addEventListener('ended', () => {
+    if (slot !== activeSlot) return;
+    loadVideoAt(currentIdx + 1);
+  });
+});
+
+// ── Native proxy ───────────────────────────────────────────────────────────
+async function startProxy(username, password) {
+  const { HiDriveProxy } = window.Capacitor.Plugins;
+  return HiDriveProxy.start({ username, password, port: PROXY_PORT });
+}
+
+// ── Session start ──────────────────────────────────────────────────────────
+async function startSession() {
+  const hdUser = document.getElementById('hd-user').value.trim();
+  const hdPass = document.getElementById('hd-pass').value;
+  const name   = document.getElementById('operator-input').value.trim();
+
+  if (!hdUser) { document.getElementById('hd-user').focus(); return; }
+  if (!hdPass) { document.getElementById('hd-pass').focus(); return; }
+  if (!name)   { document.getElementById('operator-input').focus(); return; }
+
+  const btn = document.getElementById('modal-start-btn');
+  const err = document.getElementById('modal-error');
+  btn.textContent  = 'Connecting…';
+  btn.disabled     = true;
+  err.style.display = 'none';
+
+  try {
+    await startProxy(hdUser, hdPass);
+
+    // Quick validation — list units via proxy
+    const units = await fetchUnits();
+    if (units.length === 0) throw new Error('No units found — check credentials or HiDrive path');
+
+    operator = name;
+    localStorage.setItem('cctv_operator', name);
+    localStorage.setItem('cctv_hd_user', hdUser);
+
+    // Restore log for this operator
+    try { logRows = JSON.parse(localStorage.getItem(`cctv_log_${operator}`) || '[]'); } catch { logRows = []; }
+    eventCount = logRows.length;
+
+    document.getElementById('setup-modal').style.display = 'none';
+    document.getElementById('app').style.display         = 'flex';
+    document.getElementById('app').style.flexDirection   = 'column';
+
+    await loadUnits(units);
+  } catch (e) {
+    err.textContent   = e.message || 'Connection failed';
+    err.style.display = 'block';
+  } finally {
+    btn.textContent = 'Start Session';
+    btn.disabled    = false;
+  }
+}
+
+document.getElementById('operator-input').addEventListener('keydown', e => {
+  if (e.key === 'Enter') startSession();
+});
+
+window.addEventListener('DOMContentLoaded', () => {
+  const savedUser = localStorage.getItem('cctv_hd_user') || '';
+  const savedOp   = localStorage.getItem('cctv_operator') || '';
+  if (savedUser) document.getElementById('hd-user').value = savedUser;
+  if (savedOp)   document.getElementById('operator-input').value = savedOp;
+});
+
+// ── WebDAV ─────────────────────────────────────────────────────────────────
+function parsePropfind(xml) {
+  const DAV  = 'DAV:';
+  const doc  = new DOMParser().parseFromString(xml, 'text/xml');
+  const resps = Array.from(doc.getElementsByTagNameNS(DAV, 'response'));
+  return resps.slice(1).map(r => {
+    const href   = decodeURIComponent(r.getElementsByTagNameNS(DAV, 'href')[0].textContent).replace(/\/$/, '');
+    const name   = href.split('/').pop();
+    const isDir  = r.getElementsByTagNameNS(DAV, 'collection').length > 0;
+    return { name, isDir };
+  });
+}
+
+async function propfind(path) {
+  const r = await fetch(`${BASE}${path}`, { method: 'PROPFIND', headers: { 'Depth': '1' } });
+  if (!r.ok) throw new Error(`PROPFIND ${path} → ${r.status}`);
+  return parsePropfind(await r.text());
+}
+
+async function fetchUnits() {
+  const entries = await propfind('/public/');
+  return entries.filter(e => e.isDir && /^PikPak/.test(e.name)).map(e => e.name).sort();
+}
+
+async function fetchDates(unit) {
+  const dates = [];
+  const years = (await propfind(`/public/${unit}/`)).filter(e => e.isDir && /^\d+$/.test(e.name));
+  for (const yr of years) {
+    const months = (await propfind(`/public/${unit}/${yr.name}/`)).filter(e => e.isDir);
+    for (const mo of months) {
+      const days = (await propfind(`/public/${unit}/${yr.name}/${mo.name}/`)).filter(e => e.isDir);
+      for (const day of days) dates.push(`${yr.name}-${mo.name}-${day.name}`);
+    }
+  }
+  return dates.sort();
+}
+
+async function fetchVideos(unit, date) {
+  const [year, month, day] = date.split('-');
+  const entries = await propfind(`/public/${unit}/${year}/${month}/${day}/`);
+  return entries
+    .filter(e => !e.isDir && e.name.toLowerCase().endsWith('.mp4'))
+    .map(e => {
+      const m = e.name.match(/(\d{14})/);
+      if (!m) return null;
+      const ts = parseTS(m[1]);
+      return {
+        filename:  e.name,
+        label:     fmtTime(ts),
+        path:      `${unit}/${year}/${month}/${day}/${e.name}`,
+        start_iso: ts.toISOString(),
+      };
+    })
+    .filter(Boolean)
+    .sort((a, b) => a.filename.localeCompare(b.filename));
+}
+
+function videoSrc(path) {
+  return `${BASE}/public/${path.split('/').map(encodeURIComponent).join('/')}`;
+}
+
+// ── Browse ──────────────────────────────────────────────────────────────────
+async function loadUnits(units) {
+  const sel = document.getElementById('unit-select');
+  sel.innerHTML = '<option value="">Select unit…</option>';
+  units.forEach(u => {
+    const o = document.createElement('option');
+    o.value = o.textContent = u;
+    sel.appendChild(o);
+  });
+}
+
+async function onUnitChange() {
+  const unit = document.getElementById('unit-select').value;
+  document.getElementById('video-list').innerHTML = '';
+  const dateSel = document.getElementById('date-select');
+  dateSel.innerHTML = '<option value="">Loading…</option>';
+  dateSel.disabled  = true;
+  if (!unit) { dateSel.innerHTML = '<option value="">Select date…</option>'; return; }
+
+  const dates = await fetchDates(unit);
+  dateSel.innerHTML = '<option value="">Select date…</option>';
+  [...dates].reverse().forEach(d => {
+    const o = document.createElement('option');
+    o.value = o.textContent = d;
+    dateSel.appendChild(o);
+  });
+  dateSel.disabled = false;
+}
+
+async function onDateChange() {
+  const unit = document.getElementById('unit-select').value;
+  const date = document.getElementById('date-select').value;
+  if (!unit || !date) return;
+
+  const list = document.getElementById('video-list');
+  list.innerHTML = '';
+  unitVideos = [];
+  currentIdx = -1;
+  currentUnit = unit;
+
+  unitVideos = await fetchVideos(unit, date);
+  if (unitVideos.length === 0) {
+    list.innerHTML = '<li class="vi-empty">No videos found</li>'; return;
+  }
+  unitVideos.forEach((v, i) => {
+    const li = document.createElement('li');
+    li.className   = 'vi';
+    li.dataset.idx = i;
+    li.innerHTML   = `<span class="vi-time">${v.label}</span><span class="vi-preload" id="pre-${i}">●</span>`;
+    li.onclick     = () => loadVideoAt(i);
+    list.appendChild(li);
+  });
+  schedulePreload(0);
+}
+
+// ── Video ──────────────────────────────────────────────────────────────────
+function loadVideoAt(idx) {
+  if (idx < 0 || idx >= unitVideos.length) return;
+  const video = unitVideos[idx];
+  const src   = videoSrc(video.path);
+  const currentRate = activePlayer().playbackRate || 1;
+
+  if (playerSrc[1 - activeSlot] === src && bgPlayer().readyState >= 2) {
+    activePlayer().pause();
+    activePlayer().style.display = 'none';
+    bgPlayer().style.display     = 'block';
+    activeSlot = 1 - activeSlot;
+    activePlayer().playbackRate  = currentRate;
+    activePlayer().play().catch(() => {});
+    document.getElementById('loading-overlay').classList.remove('show');
+  } else {
+    document.getElementById('loading-overlay').classList.add('show');
+    activePlayer().src = src;
+    activePlayer().load();
+    playerSrc[activeSlot] = src;
+    activePlayer().playbackRate = currentRate;
+    activePlayer().play().catch(() => {});
+    activePlayer().style.display = 'block';
+  }
+
+  currentIdx = idx;
+  document.getElementById('no-video-msg').style.display = 'none';
+  document.getElementById('header-unit').textContent    = `${currentUnit}  ·  ${video.label}`;
+  updateSidebarActive(idx);
+}
+
+function schedulePreload(idx) {
+  if (idx < 0 || idx >= unitVideos.length) return;
+  const src = videoSrc(unitVideos[idx].path);
+  if (playerSrc[1 - activeSlot] === src) return;
+  const bg = bgPlayer();
+  bg.src   = src; bg.load();
+  playerSrc[1 - activeSlot] = src;
+  bg.addEventListener('canplay', () => {
+    const dot = document.getElementById(`pre-${idx}`);
+    if (dot) dot.classList.add('ready');
+  }, { once: true });
+}
+
+function updateSidebarActive(idx) {
+  document.querySelectorAll('.vi').forEach(el => el.classList.remove('active'));
+  const el = document.querySelector(`.vi[data-idx="${idx}"]`);
+  if (el) { el.classList.add('active'); el.scrollIntoView({ block: 'nearest' }); }
+}
+
+// ── Logging ────────────────────────────────────────────────────────────────
+function logEvent(status) {
+  if (currentIdx < 0) return;
+  const video   = unitVideos[currentIdx];
+  const start   = new Date(video.start_iso);
+  const ts      = new Date(start.getTime() + activePlayer().currentTime * 1000);
+  const product = document.getElementById('product-input').value.trim();
+  const ppx     = (currentUnit.match(/\d+/) || [currentUnit])[0];
+
+  const row = {
+    ppx, product, status,
+    unit: currentUnit,
+    time: fmtTs(ts),
+    date: `${ts.getMonth()+1}/${ts.getDate()}/${ts.getFullYear()}`,
+    hhmm: `${ts.getHours()}:${ts.getMinutes().toString().padStart(2,'0')}:${ts.getSeconds().toString().padStart(2,'0')}`,
+    operator,
+  };
+
+  logRows.unshift(row);
+  eventCount++;
+  localStorage.setItem(`cctv_log_${operator}`, JSON.stringify(logRows));
+  renderLog();
+  flashBtn(status);
+}
+
+function undoEvent() {
+  if (logRows.length === 0) return;
+  logRows.shift();
+  eventCount = Math.max(0, eventCount - 1);
+  localStorage.setItem(`cctv_log_${operator}`, JSON.stringify(logRows));
+  renderLog();
+}
+
+function renderLog() {
+  document.getElementById('log-tbody').innerHTML = logRows.slice(0, 80).map(r => `
+    <tr>
+      <td>${r.time}</td>
+      <td class="s-${r.status.toLowerCase()}">${r.status}</td>
+      <td>${escHtml(r.product)}</td>
+      <td>${r.unit}</td>
+    </tr>`).join('');
+  document.getElementById('event-count-header').textContent =
+    `${eventCount} event${eventCount !== 1 ? 's' : ''}`;
+}
+
+function flashBtn(status) {
+  const map = { Good: 'btn-good', Bad: 'btn-bad', Issue: 'btn-issue', Reject: 'btn-reject' };
+  const btn = document.getElementById(map[status]);
+  if (!btn) return;
+  const cls = `flash-${status.toLowerCase()}`;
+  btn.classList.remove(cls); void btn.offsetWidth;
+  btn.classList.add(cls);
+  btn.addEventListener('animationend', () => btn.classList.remove(cls), { once: true });
+}
+
+// ── Speed ──────────────────────────────────────────────────────────────────
+function setSpeed(rate) {
+  players.forEach(p => { p.playbackRate = rate; });
+  document.querySelectorAll('.speed-wrap button').forEach(btn => {
+    btn.classList.toggle('active', parseFloat(btn.dataset.speed) === rate);
+  });
+}
+
+// ── Download / Share ───────────────────────────────────────────────────────
+async function downloadCSV() {
+  const header = 'PPX,Date,Time,Index,Status,Product,Operator\n';
+  const rows   = [...logRows].reverse().map(r =>
+    [r.ppx, r.date, r.hhmm, '', r.status, r.product, r.operator]
+      .map(v => `"${(v||'').replace(/"/g,'""')}"`)
+      .join(',')
+  ).join('\n');
+  const csv  = header + rows;
+  const name = `${operator || 'log'}_cctv.csv`;
+
+  if (navigator.canShare && navigator.canShare({ files: [new File([csv], name, { type: 'text/csv' })] })) {
+    await navigator.share({ files: [new File([csv], name, { type: 'text/csv' })] });
+  } else {
+    // Fallback: blob download
+    const a = Object.assign(document.createElement('a'), {
+      href: URL.createObjectURL(new Blob([csv], { type: 'text/csv' })),
+      download: name,
+    });
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  }
+}
+
+// ── Keyboard shortcuts ─────────────────────────────────────────────────────
+document.addEventListener('keydown', e => {
+  if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+  if (!operator) return;
+  const p = activePlayer();
+  switch (e.key.toLowerCase()) {
+    case 'g': logEvent('Good');            break;
+    case 'b': logEvent('Bad');             break;
+    case 'i': logEvent('Issue');           break;
+    case 'r': logEvent('Reject');          break;
+    case 'u': undoEvent();                 break;
+    case 'n': loadVideoAt(currentIdx + 1); break;
+    case 'p': loadVideoAt(currentIdx - 1); break;
+    case ' ':
+      e.preventDefault();
+      p.paused ? p.play() : p.pause();
+      break;
+    case 'arrowleft':
+      e.preventDefault();
+      p.currentTime = Math.max(0, p.currentTime - (e.shiftKey ? 30 : 5));
+      break;
+    case 'arrowright':
+      e.preventDefault();
+      p.currentTime = Math.min(p.duration || Infinity, p.currentTime + (e.shiftKey ? 30 : 5));
+      break;
+  }
+});
+
+// ── Helpers ────────────────────────────────────────────────────────────────
+function parseTS(s) {
+  return new Date(
+    parseInt(s.slice(0,4)), parseInt(s.slice(4,6))-1, parseInt(s.slice(6,8)),
+    parseInt(s.slice(8,10)), parseInt(s.slice(10,12)), parseInt(s.slice(12,14))
+  );
+}
+function fmtTime(dt) {
+  return `${dt.getHours().toString().padStart(2,'0')}:${dt.getMinutes().toString().padStart(2,'0')}:${dt.getSeconds().toString().padStart(2,'0')}`;
+}
+function fmtTs(dt) {
+  const d = `${dt.getDate().toString().padStart(2,'0')}/${(dt.getMonth()+1).toString().padStart(2,'0')}/${dt.getFullYear()}`;
+  return `${d}  ${fmtTime(dt)}`;
+}
+function escHtml(s) {
+  return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+</script>
+</body>
+</html>
