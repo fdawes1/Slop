@@ -1,0 +1,414 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Slop — TUI Demo</title>
+<link rel="stylesheet" href="https://unpkg.com/@xterm/xterm@5.5.0/css/xterm.css">
+<script src="https://unpkg.com/@xterm/xterm@5.5.0/lib/xterm.js"></script>
+<script src="https://unpkg.com/@xterm/addon-fit@0.10.0/lib/addon-fit.js"></script>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: #0a0a0f;
+    color: #e0e0e0;
+    font-family: 'Courier New', monospace;
+    height: 100vh;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+  }
+
+  header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 8px 16px;
+    background: #111118;
+    border-bottom: 1px solid #2a2a3a;
+    flex-shrink: 0;
+    gap: 12px;
+  }
+
+  header h1 {
+    font-size: 14px;
+    letter-spacing: 4px;
+    text-transform: uppercase;
+    color: #7c7cff;
+    white-space: nowrap;
+  }
+
+  .header-controls {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+  }
+
+  .btn {
+    background: #1e1e2e;
+    color: #a0a0d0;
+    border: 1px solid #3a3a5a;
+    padding: 4px 12px;
+    font-size: 11px;
+    letter-spacing: 1px;
+    cursor: pointer;
+    text-transform: uppercase;
+    transition: all 0.15s;
+  }
+  .btn:hover { background: #2a2a4a; color: #e0e0ff; border-color: #6060aa; }
+
+  .status-bar {
+    font-size: 11px;
+    color: #505070;
+    white-space: nowrap;
+  }
+
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    grid-template-rows: repeat(3, 1fr);
+    gap: 4px;
+    padding: 4px;
+    flex: 1;
+    overflow: hidden;
+  }
+
+  .tile {
+    background: #0d0d14;
+    border: 1px solid #1e1e2e;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    position: relative;
+    transition: border-color 0.15s;
+  }
+
+  .tile:hover { border-color: #3a3a5a; }
+  .tile.focused { border-color: #5555bb; z-index: 10; }
+
+  .tile-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 3px 8px;
+    background: #111118;
+    border-bottom: 1px solid #1a1a28;
+    flex-shrink: 0;
+    cursor: pointer;
+    user-select: none;
+  }
+
+  .tile-header:hover { background: #161622; }
+
+  .tile-label {
+    font-size: 10px;
+    letter-spacing: 2px;
+    color: #8888cc;
+    font-weight: bold;
+    text-transform: uppercase;
+  }
+
+  .tile-desc {
+    font-size: 9px;
+    color: #404060;
+    letter-spacing: 1px;
+  }
+
+  .tile-actions {
+    display: flex;
+    gap: 4px;
+    align-items: center;
+  }
+
+  .tile-btn {
+    background: none;
+    border: 1px solid #2a2a3a;
+    color: #505070;
+    font-size: 9px;
+    padding: 1px 5px;
+    cursor: pointer;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    transition: all 0.1s;
+  }
+  .tile-btn:hover { color: #a0a0cc; border-color: #4a4a6a; background: #1a1a2a; }
+
+  .dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: #303050;
+    flex-shrink: 0;
+    transition: background 0.3s;
+  }
+  .dot.running { background: #44bb44; box-shadow: 0 0 4px #44bb44; }
+  .dot.exited  { background: #bb4444; }
+  .dot.error   { background: #ffaa00; }
+
+  .tile-terminal {
+    flex: 1;
+    overflow: hidden;
+    padding: 2px;
+    min-height: 0;
+  }
+
+  .tile-terminal .xterm { height: 100%; }
+  .tile-terminal .xterm-viewport { overflow-y: hidden !important; }
+
+  /* Maximised tile */
+  .tile.maximised {
+    position: fixed;
+    inset: 0;
+    z-index: 100;
+    border-color: #6666cc;
+  }
+
+  .tile.maximised .tile-terminal {
+    padding: 4px;
+  }
+
+  .overlay-dim {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.7);
+    z-index: 99;
+  }
+  .overlay-dim.active { display: block; }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>⚔ Slop — TUI Demo</h1>
+  <div class="status-bar" id="status">Loading apps…</div>
+  <div class="header-controls">
+    <button class="btn" id="btn-restart-all">Restart All</button>
+    <button class="btn" id="btn-kill-all">Kill All</button>
+  </div>
+</header>
+
+<div class="grid" id="grid"></div>
+<div class="overlay-dim" id="overlay"></div>
+
+<script>
+const WS_BASE = `ws://${location.host}/ws`;
+
+class AppTerminal {
+  constructor(conf, container) {
+    this.conf = conf;
+    this.container = container;
+    this.ws = null;
+    this.term = null;
+    this.fitAddon = null;
+    this.dot = null;
+    this.maximised = false;
+    this._resizeObserver = null;
+  }
+
+  init() {
+    this.term = new Terminal({
+      fontFamily: '"Courier New", monospace',
+      fontSize: 11,
+      lineHeight: 1.1,
+      theme: {
+        background: '#0a0a0f',
+        foreground: '#c8c8e8',
+        cursor: '#7777dd',
+        cursorAccent: '#0a0a0f',
+        black:   '#1a1a2e', red:     '#cc4444', green:  '#44cc44', yellow: '#cccc44',
+        blue:    '#4444cc', magenta: '#cc44cc', cyan:   '#44cccc', white:  '#cccccc',
+        brightBlack:   '#404060', brightRed:    '#ff6666', brightGreen: '#66ff66',
+        brightYellow:  '#ffff66', brightBlue:   '#6666ff', brightMagenta: '#ff66ff',
+        brightCyan:    '#66ffff', brightWhite:  '#ffffff',
+      },
+      cursorBlink: true,
+      allowTransparency: true,
+      scrollback: 500,
+    });
+
+    this.fitAddon = new FitAddon.FitAddon();
+    this.term.loadAddon(this.fitAddon);
+    this.term.open(this.container);
+    this.fit();
+
+    this._resizeObserver = new ResizeObserver(() => this.fit());
+    this._resizeObserver.observe(this.container);
+
+    this.term.onData(data => {
+      if (this.ws && this.ws.readyState === WebSocket.OPEN) {
+        this.ws.send(new TextEncoder().encode(data));
+      }
+    });
+
+    this.connect();
+  }
+
+  fit() {
+    try {
+      this.fitAddon.fit();
+      if (this.ws && this.ws.readyState === WebSocket.OPEN) {
+        this.ws.send(JSON.stringify({
+          type: 'resize',
+          rows: this.term.rows,
+          cols: this.term.cols,
+        }));
+      }
+    } catch (_) {}
+  }
+
+  connect() {
+    if (this.ws) {
+      this.ws.onclose = null;
+      this.ws.close();
+    }
+    this.setStatus('running');
+    this.ws = new WebSocket(`${WS_BASE}/${this.conf.id}`);
+    this.ws.binaryType = 'arraybuffer';
+
+    this.ws.onopen = () => {
+      this.term.clear();
+      this.fit();
+    };
+
+    this.ws.onmessage = (e) => {
+      if (e.data instanceof ArrayBuffer) {
+        this.term.write(new Uint8Array(e.data));
+      } else {
+        const msg = JSON.parse(e.data);
+        if (msg.type === 'exit') {
+          this.setStatus('exited');
+          this.term.write('\r\n\x1b[90m[process exited — click RESTART to relaunch]\x1b[0m\r\n');
+        } else if (msg.type === 'error') {
+          this.setStatus('error');
+          this.term.write(`\r\n\x1b[31m[error: ${msg.msg}]\x1b[0m\r\n`);
+        }
+      }
+    };
+
+    this.ws.onerror = () => {
+      this.setStatus('error');
+    };
+
+    this.ws.onclose = () => {
+      if (this.dot && this.dot.classList.contains('running')) {
+        this.setStatus('exited');
+      }
+    };
+  }
+
+  setStatus(s) {
+    if (!this.dot) return;
+    this.dot.className = 'dot ' + s;
+  }
+
+  kill() {
+    if (this.ws) {
+      this.ws.onclose = null;
+      this.ws.close();
+    }
+    this.setStatus('exited');
+  }
+
+  restart() {
+    this.kill();
+    setTimeout(() => this.connect(), 200);
+  }
+
+  toggleMaximise() {
+    const tile = this.container.closest('.tile');
+    const overlay = document.getElementById('overlay');
+    this.maximised = !this.maximised;
+    tile.classList.toggle('maximised', this.maximised);
+    overlay.classList.toggle('active', this.maximised);
+    setTimeout(() => this.fit(), 50);
+  }
+}
+
+const instances = {};
+
+async function buildGrid() {
+  const res = await fetch('/apps');
+  const apps = await res.json();
+  const grid = document.getElementById('grid');
+
+  apps.forEach(conf => {
+    const tile = document.createElement('div');
+    tile.className = 'tile';
+    tile.id = `tile-${conf.id}`;
+
+    const dot = document.createElement('div');
+    dot.className = 'dot';
+
+    const hdr = document.createElement('div');
+    hdr.className = 'tile-header';
+    hdr.innerHTML = `
+      <div style="display:flex;align-items:center;gap:6px">
+        <div class="tile-label">${conf.label}</div>
+        <div class="tile-desc">${conf.desc}</div>
+      </div>
+      <div class="tile-actions">
+        <button class="tile-btn" data-action="restart">↺ restart</button>
+        <button class="tile-btn" data-action="maximise">⤢</button>
+      </div>
+    `;
+    hdr.querySelector('[data-action="maximise"]').before(dot);
+
+    const termContainer = document.createElement('div');
+    termContainer.className = 'tile-terminal';
+
+    tile.appendChild(hdr);
+    tile.appendChild(termContainer);
+    grid.appendChild(tile);
+
+    const inst = new AppTerminal(conf, termContainer);
+    inst.dot = dot;
+    instances[conf.id] = inst;
+
+    hdr.querySelector('[data-action="restart"]').addEventListener('click', e => {
+      e.stopPropagation();
+      inst.restart();
+    });
+
+    hdr.querySelector('[data-action="maximise"]').addEventListener('click', e => {
+      e.stopPropagation();
+      inst.toggleMaximise();
+    });
+  });
+
+  // Click overlay to un-maximise
+  document.getElementById('overlay').addEventListener('click', () => {
+    Object.values(instances).forEach(i => {
+      if (i.maximised) i.toggleMaximise();
+    });
+  });
+
+  document.getElementById('btn-restart-all').addEventListener('click', () => {
+    Object.values(instances).forEach(i => i.restart());
+  });
+
+  document.getElementById('btn-kill-all').addEventListener('click', () => {
+    Object.values(instances).forEach(i => i.kill());
+  });
+
+  // Stagger launches to avoid hammering the server
+  const appList = Object.values(instances);
+  for (let i = 0; i < appList.length; i++) {
+    setTimeout(() => appList[i].init(), i * 150);
+  }
+
+  updateStatus();
+}
+
+function updateStatus() {
+  const total = Object.keys(instances).length;
+  const running = Object.values(instances).filter(i => i.dot?.classList.contains('running')).length;
+  document.getElementById('status').textContent = `${running}/${total} running`;
+  setTimeout(updateStatus, 1000);
+}
+
+buildGrid();
+</script>
+</body>
+</html>

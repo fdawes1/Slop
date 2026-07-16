@@ -388,6 +388,24 @@ SSH to remote hosts works too, via the connection panel. Requires `paramiko`. Th
 
 ---
 
+### [`demo/`](demo/) — DEMO
+
+A browser-based TUI launcher for everything in this repository. A FastAPI server spawns each TUI app in a PTY and bridges it over WebSocket to an xterm.js terminal in the browser. Select any app from the header, and it opens in a full-screen terminal pane — running live, fully interactive, as if you'd typed the command yourself.
+
+This is either a very elegant solution to the problem of explaining TUI apps to people who don't have a terminal in front of them, or an elaborate way to avoid sending someone a README. Both, probably. The PTY handling is done via `ptyprocess`, the WebSocket plumbing via FastAPI, and the terminal emulation via xterm.js, because if you're going to over-engineer a demo, you may as well do it properly.
+
+> *"What is your quest?" "To demonstrate sorting algorithms in a browser without setting up npm." "What is your favourite Python version?" "3.10+." "Right, off you go."*
+
+**Run with:**
+```bash
+cd demo
+pip install fastapi uvicorn ptyprocess
+python3 server.py
+# Then: http://localhost:8000
+```
+
+---
+
 ## General Notes
 
 - Everything here requires Python 3.10+ because I refuse to write `Union[X, Y]` when `X | Y` exists.

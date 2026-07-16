@@ -5,6 +5,7 @@ venv/
 **/.env
 *.pkl
 *.token
+**/credentials.json
 
 # generated output
 yt-agent/output/
