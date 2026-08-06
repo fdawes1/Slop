@@ -28,6 +28,27 @@ def _extract_pdf(path: Path) -> str:
     return "\n\n".join(pages)
 
 
+def extract_embedded_metadata(path: Path, suffix: str) -> dict:
+    """Best-effort title/author straight from the file's own metadata, if any."""
+    suffix = suffix.lower()
+    try:
+        if suffix == ".epub":
+            book = epub.read_epub(str(path))
+            titles = book.get_metadata("DC", "title")
+            creators = book.get_metadata("DC", "creator")
+            return {
+                "title": titles[0][0] if titles else None,
+                "author": creators[0][0] if creators else None,
+            }
+        if suffix == ".pdf":
+            meta = PdfReader(str(path)).metadata
+            if meta:
+                return {"title": meta.title, "author": meta.author}
+    except Exception:
+        pass
+    return {"title": None, "author": None}
+
+
 def _extract_epub(path: Path) -> str:
     book = epub.read_epub(str(path))
     parts = []

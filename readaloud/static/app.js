@@ -1,5 +1,6 @@
 const dropzone = document.getElementById("dropzone");
 const fileInput = document.getElementById("file-input");
+const folderInput = document.getElementById("folder-input");
 const library = document.getElementById("library");
 const reader = document.getElementById("reader");
 const readerTitle = document.getElementById("reader-title");
@@ -22,6 +23,26 @@ let casting = false;
 let castPollTimer = null;
 let castDeviceName = null;
 
+let allBooks = [];
+let activeGenre = "All";
+let activeType = "All";
+let activeStatus = "All";
+let sortBy = "recent";
+const searchInput = document.getElementById("search");
+const sortButtons = document.getElementById("sort-buttons");
+const typeChips = document.getElementById("type-chips");
+const statusChips = document.getElementById("status-chips");
+const genreChips = document.getElementById("genre-chips");
+const libraryEmpty = document.getElementById("library-empty");
+const libraryLoading = document.getElementById("library-loading");
+
+function bookStatus(book) {
+  const pct = book.num_chunks ? book.current_chunk / book.num_chunks : 0;
+  if (pct <= 0) return "unstarted";
+  if (pct >= (book.num_chunks - 1) / book.num_chunks) return "finished";
+  return "progress";
+}
+
 async function api(path, opts = {}) {
   const res = await fetch(`/api${path}`, opts);
   if (!res.ok) throw new Error(`${res.status} ${await res.text()}`);
@@ -41,33 +62,132 @@ async function loadVoices() {
 }
 
 async function loadLibrary() {
-  const { books } = await api("/books");
+  libraryLoading.hidden = false;
+  try {
+    const { books } = await api("/books");
+    allBooks = books;
+    renderGenreChips();
+    renderLibrary();
+  } catch (err) {
+    toast(`Could not load your library: ${err.message}`, "error");
+  } finally {
+    libraryLoading.hidden = true;
+  }
+}
+
+function renderSortButtons() {
+  sortButtons.querySelectorAll(".chip").forEach((btn) => btn.classList.toggle("active", btn.dataset.sort === sortBy));
+}
+
+sortButtons.addEventListener("click", (e) => {
+  const btn = e.target.closest(".chip");
+  if (!btn) return;
+  sortBy = btn.dataset.sort;
+  renderSortButtons();
+  renderLibrary();
+});
+
+typeChips.addEventListener("click", (e) => {
+  const btn = e.target.closest(".chip");
+  if (!btn) return;
+  activeType = btn.dataset.type;
+  typeChips.querySelectorAll(".chip").forEach((c) => c.classList.toggle("active", c === btn));
+  renderLibrary();
+});
+
+statusChips.addEventListener("click", (e) => {
+  const btn = e.target.closest(".chip");
+  if (!btn) return;
+  activeStatus = btn.dataset.status;
+  statusChips.querySelectorAll(".chip").forEach((c) => c.classList.toggle("active", c === btn));
+  renderLibrary();
+});
+
+function renderGenreChips() {
+  const genres = [...new Set(allBooks.map((b) => b.genre).filter(Boolean))].sort();
+  if (!genres.length) {
+    genreChips.innerHTML = "";
+    return;
+  }
+  const all = ["All", ...genres];
+  if (!all.includes(activeGenre)) activeGenre = "All";
+  genreChips.innerHTML = all
+    .map((g) => `<button class="chip${g === activeGenre ? " active" : ""}" data-genre="${escapeHtml(g)}">${escapeHtml(g)}</button>`)
+    .join("");
+  genreChips.querySelectorAll(".chip").forEach((chip) =>
+    chip.addEventListener("click", () => {
+      activeGenre = chip.dataset.genre;
+      renderGenreChips();
+      renderLibrary();
+    })
+  );
+}
+
+function renderLibrary() {
+  const query = searchInput.value.trim().toLowerCase();
+  let books = allBooks.filter((b) => {
+    if (activeGenre !== "All" && b.genre !== activeGenre) return false;
+    if (activeType !== "All" && (activeType === "audio") !== !!b.is_audio) return false;
+    if (activeStatus !== "All" && bookStatus(b) !== activeStatus) return false;
+    if (!query) return true;
+    return b.title.toLowerCase().includes(query) || (b.author || "").toLowerCase().includes(query);
+  });
+
+  books = [...books].sort((a, b) => {
+    if (sortBy === "title") return a.title.localeCompare(b.title);
+    if (sortBy === "author") return (a.author || "").localeCompare(b.author || "");
+    if (sortBy === "progress") {
+      const pctA = a.num_chunks ? a.current_chunk / a.num_chunks : 0;
+      const pctB = b.num_chunks ? b.current_chunk / b.num_chunks : 0;
+      const inProgressA = pctA > 0 && pctA < 1;
+      const inProgressB = pctB > 0 && pctB < 1;
+      if (inProgressA !== inProgressB) return inProgressA ? -1 : 1;
+      return pctB - pctA;
+    }
+    return (b.added_at || 0) - (a.added_at || 0);
+  });
+
   library.innerHTML = "";
+  libraryEmpty.hidden = books.length > 0;
+
   for (const book of books) {
     const card = document.createElement("div");
     card.className = "book-card";
     const pct = book.num_chunks ? Math.round((book.current_chunk / book.num_chunks) * 100) : 0;
-    const sub = book.is_audio
-      ? `${book.format.toUpperCase()} &middot; audiobook`
-      : `${book.format.toUpperCase()} &middot; ${book.num_chunks} sections &middot; ${pct}% done`;
+    const subParts = [];
+    if (book.author) subParts.push(escapeHtml(book.author));
+    else subParts.push(book.is_audio ? "audiobook" : book.format.toUpperCase());
+    if (book.genre) subParts.push(escapeHtml(book.genre));
+    const icon = book.is_audio ? "&#127911;" : "&#128214;";
+    const cover = book.cover_url
+      ? `<img src="${escapeHtml(book.cover_url)}" alt="" loading="lazy">`
+      : `<span class="placeholder-icon">${icon}</span>`;
+
     card.innerHTML = `
-      <div style="flex:1">
-        <div class="title">${escapeHtml(book.title)}</div>
-        <div class="sub">${sub}</div>
-        <div class="progress-bar"><div style="width:${pct}%"></div></div>
-      </div>
+      <div class="cover">${cover}</div>
+      <div class="title">${escapeHtml(book.title)}</div>
+      <div class="sub">${subParts.join(" &middot; ")}</div>
+      <div class="progress-bar"><div style="width:${pct}%"></div></div>
       <button class="delete" title="delete">&times;</button>
     `;
     card.addEventListener("click", () => openBook(book));
     card.querySelector(".delete").addEventListener("click", async (e) => {
       e.stopPropagation();
-      if (!confirm(`Delete "${book.title}"?`)) return;
-      await api(`/books/${book.id}`, { method: "DELETE" });
-      loadLibrary();
+      const ok = await confirmDialog(`Delete "${book.title}"? This can't be undone.`);
+      if (!ok) return;
+      try {
+        await api(`/books/${book.id}`, { method: "DELETE" });
+        toast(`Deleted "${book.title}"`);
+        loadLibrary();
+      } catch (err) {
+        toast(`Could not delete: ${err.message}`, "error");
+      }
     });
     library.appendChild(card);
   }
 }
+
+searchInput.addEventListener("input", renderLibrary);
 
 function escapeHtml(s) {
   const div = document.createElement("div");
@@ -183,13 +303,13 @@ function isSupported(file) {
 }
 
 dropzone.addEventListener("click", (e) => {
-  if (e.target.id === "choose-files") {
+  if (e.target.id === "choose-folder") {
     e.preventDefault();
-    fileInput.click();
-  } else if (e.target.id === "choose-folder") {
-    e.preventDefault();
-    document.getElementById("folder-input").click();
+    folderInput.click();
+    return;
   }
+  e.preventDefault();
+  fileInput.click();
 });
 
 dropzone.addEventListener("dragover", (e) => {
@@ -207,7 +327,7 @@ fileInput.addEventListener("change", () => {
   if (fileInput.files.length) uploadFiles([...fileInput.files]);
   fileInput.value = "";
 });
-document.getElementById("folder-input").addEventListener("change", (e) => {
+folderInput.addEventListener("change", (e) => {
   if (e.target.files.length) uploadFiles([...e.target.files]);
   e.target.value = "";
 });
@@ -252,15 +372,26 @@ function walkEntry(entry, files) {
 async function uploadFiles(files) {
   const supported = files.filter(isSupported);
   const skipped = files.length - supported.length;
+  let failed = 0;
+
+  if (!supported.length) {
+    if (skipped) toast(`No supported files in that selection (${skipped} skipped).`, "error");
+    return;
+  }
 
   for (let i = 0; i < supported.length; i++) {
     const file = supported[i];
-    dropzone.textContent = `uploading ${i + 1} / ${supported.length}: ${file.name}`;
+    const pct = Math.round((i / supported.length) * 100);
+    dropzone.innerHTML = `
+      <p>uploading ${i + 1} / ${supported.length}: ${escapeHtml(file.name)}</p>
+      <div class="upload-progress"><div style="width:${pct}%"></div></div>
+    `;
     const form = new FormData();
     form.append("file", file);
     try {
       await api("/books", { method: "POST", body: form });
     } catch (err) {
+      failed++;
       console.error(`Upload failed for ${file.name}: ${err.message}`);
     }
   }
@@ -268,7 +399,15 @@ async function uploadFiles(files) {
   dropzone.innerHTML = DROPZONE_DEFAULT_HTML;
   loadLibrary();
 
-  if (skipped) alert(`Skipped ${skipped} file(s) with unsupported extensions.`);
+  const added = supported.length - failed;
+  if (!failed && !skipped) {
+    toast(`Added ${added} book${added === 1 ? "" : "s"} to your library.`);
+  } else {
+    const parts = [`Added ${added} book${added === 1 ? "" : "s"}`];
+    if (failed) parts.push(`${failed} failed`);
+    if (skipped) parts.push(`${skipped} skipped (unsupported type)`);
+    toast(parts.join(", "), failed ? "error" : "info");
+  }
 }
 
 function resetCastUI() {
@@ -331,7 +470,7 @@ async function startCast(deviceName) {
     castStatusEl.textContent = `casting to ${result.device}`;
     startCastPolling();
   } catch (err) {
-    alert(`Cast failed: ${err.message}`);
+    toast(`Cast failed: ${err.message}`, "error");
     resetCastUI();
   }
 }
@@ -339,8 +478,13 @@ async function startCast(deviceName) {
 castBtn.addEventListener("click", async () => {
   if (!current) return;
   if (casting) {
-    await api(`/books/${current.id}/cast/stop`, { method: "POST" });
+    try {
+      await api(`/books/${current.id}/cast/stop`, { method: "POST" });
+    } catch (err) {
+      toast(`Could not stop casting cleanly: ${err.message}`, "error");
+    }
     resetCastUI();
+    await showChunk(current.index);
     return;
   }
   const prevLabel = castBtn.textContent;
@@ -348,7 +492,7 @@ castBtn.addEventListener("click", async () => {
   try {
     const { devices } = await api("/cast/devices");
     if (!devices.length) {
-      alert("No Cast devices found on the network.");
+      toast("No Cast devices found on the network. Try again — mDNS discovery can be flaky.", "error");
       castBtn.textContent = prevLabel;
       return;
     }
@@ -358,12 +502,53 @@ castBtn.addEventListener("click", async () => {
     castDevices.hidden = false;
     castBtn.textContent = prevLabel;
   } catch (err) {
-    alert(`Could not list cast devices: ${err.message}`);
+    toast(`Could not list cast devices: ${err.message}`, "error");
     castBtn.textContent = prevLabel;
   }
 });
 
 castDevices.addEventListener("change", () => startCast(castDevices.value));
 
+const toastContainer = document.getElementById("toast-container");
+
+function toast(message, type = "info") {
+  const el = document.createElement("div");
+  el.className = `toast ${type}`;
+  el.textContent = message;
+  toastContainer.appendChild(el);
+  setTimeout(() => {
+    el.classList.add("fade-out");
+    setTimeout(() => el.remove(), 250);
+  }, 3500);
+}
+
+const confirmOverlay = document.getElementById("confirm-overlay");
+const confirmMessage = document.getElementById("confirm-message");
+const confirmOk = document.getElementById("confirm-ok");
+const confirmCancel = document.getElementById("confirm-cancel");
+
+function confirmDialog(message) {
+  confirmMessage.textContent = message;
+  confirmOverlay.hidden = false;
+  return new Promise((resolve) => {
+    const cleanup = (result) => {
+      confirmOverlay.hidden = true;
+      confirmOk.removeEventListener("click", onOk);
+      confirmCancel.removeEventListener("click", onCancel);
+      confirmOverlay.removeEventListener("click", onOverlay);
+      resolve(result);
+    };
+    const onOk = () => cleanup(true);
+    const onCancel = () => cleanup(false);
+    const onOverlay = (e) => {
+      if (e.target === confirmOverlay) cleanup(false);
+    };
+    confirmOk.addEventListener("click", onOk);
+    confirmCancel.addEventListener("click", onCancel);
+    confirmOverlay.addEventListener("click", onOverlay);
+  });
+}
+
+renderSortButtons();
 loadVoices();
 loadLibrary();

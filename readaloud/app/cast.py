@@ -66,7 +66,13 @@ def _advance(book_id: str, load_meta, save_meta) -> None:
         session = _sessions.get(book_id)
         if not session:
             return
-        meta = load_meta(book_id)
+        try:
+            meta = load_meta(book_id)
+        except Exception:
+            # Book was likely deleted mid-cast; drop the session rather than
+            # crash whatever pychromecast thread this callback runs on.
+            _sessions.pop(book_id, None)
+            return
         next_index = session["index"] + 1
         if next_index >= meta["num_chunks"]:
             _sessions.pop(book_id, None)
@@ -89,7 +95,7 @@ def start_cast(book_id: str, device_name: str, index: int, base_url: str, meta: 
     device.wait(timeout=10)
 
     with _lock:
-        stop_cast(book_id)
+        _stop_cast_locked(book_id)
         listener = _AutoAdvanceListener(book_id, load_meta, save_meta)
         device.media_controller.register_status_listener(listener)
         _sessions[book_id] = {
@@ -107,7 +113,7 @@ def start_cast(book_id: str, device_name: str, index: int, base_url: str, meta: 
     return {"casting": True, "device": device.name, "index": index}
 
 
-def stop_cast(book_id: str) -> bool:
+def _stop_cast_locked(book_id: str) -> bool:
     session = _sessions.pop(book_id, None)
     if not session:
         return False
@@ -125,6 +131,11 @@ def stop_cast(book_id: str) -> bool:
     except Exception:
         pass
     return True
+
+
+def stop_cast(book_id: str) -> bool:
+    with _lock:
+        return _stop_cast_locked(book_id)
 
 
 def cast_status(book_id: str) -> dict | None:

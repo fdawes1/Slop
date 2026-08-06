@@ -14,37 +14,96 @@
   <main>
     <div id="dropzone">
       <p>drag books or a whole folder here, or <a href="#" id="choose-files">choose files</a> / <a href="#" id="choose-folder">choose a folder</a></p>
-      <input id="file-input" type="file" accept=".txt,.pdf,.epub,.mp3,.m4a,.m4b" multiple hidden />
-      <input id="folder-input" type="file" webkitdirectory multiple hidden />
+    </div>
+    <input id="file-input" type="file" accept=".txt,.pdf,.epub,.mp3,.m4a,.m4b" multiple hidden />
+    <input id="folder-input" type="file" webkitdirectory multiple hidden />
+
+    <div id="toolbar">
+      <input id="search" type="search" placeholder="search title or author..." />
+    </div>
+    <div class="chip-group">
+      <span class="chip-label">sort</span>
+      <div id="sort-buttons">
+        <button class="chip active" data-sort="recent">recently added</button>
+        <button class="chip" data-sort="title">title A&ndash;Z</button>
+        <button class="chip" data-sort="author">author A&ndash;Z</button>
+        <button class="chip" data-sort="progress">in progress</button>
+      </div>
+    </div>
+    <div class="chip-group">
+      <span class="chip-label">filter</span>
+      <div id="status-chips">
+        <button class="chip active" data-status="All">all</button>
+        <button class="chip" data-status="unstarted">not started</button>
+        <button class="chip" data-status="progress">in progress</button>
+        <button class="chip" data-status="finished">finished</button>
+      </div>
+      <div id="type-chips">
+        <button class="chip active" data-type="All">all types</button>
+        <button class="chip" data-type="tts">text-to-speech</button>
+        <button class="chip" data-type="audio">audiobook</button>
+      </div>
+      <div id="genre-chips"></div>
     </div>
 
+    <p id="library-loading">loading your library&hellip;</p>
     <div id="library"></div>
+    <div id="library-empty" hidden>
+      <p class="empty-icon">&#128214;</p>
+      <p>No books yet. Drag one in above, or choose a file / folder to get started.</p>
+    </div>
 
     <section id="reader">
-      <button id="back">&larr; library</button>
-      <h2 id="reader-title"></h2>
-      <div id="reader-text"></div>
-      <div class="controls">
-        <button id="prev">&laquo; prev</button>
-        <button id="play" class="primary">play</button>
-        <button id="next">next &raquo;</button>
-        <select id="voice"></select>
-        <select id="rate">
-          <option value="-20%">0.8x</option>
-          <option value="+0%" selected>1x</option>
-          <option value="+20%">1.2x</option>
-          <option value="+40%">1.4x</option>
-        </select>
-        <span class="chunk-counter" id="chunk-counter"></span>
+      <div id="reader-scroll">
+        <button id="back">&larr; back to library</button>
+        <h2 id="reader-title"></h2>
+
+        <div class="controls settings-row">
+          <label class="field">voice<select id="voice"></select></label>
+          <label class="field">
+            speed
+            <select id="rate">
+              <option value="-20%">0.8x</option>
+              <option value="+0%" selected>1x</option>
+              <option value="+20%">1.2x</option>
+              <option value="+40%">1.4x</option>
+            </select>
+          </label>
+        </div>
+
+        <div class="controls cast-row">
+          <button id="cast-btn">&#128225; cast to speaker</button>
+          <select id="cast-devices" hidden></select>
+          <span id="cast-status"></span>
+        </div>
+
+        <div id="reader-text"></div>
       </div>
-      <div class="controls">
-        <button id="cast-btn">&#128225; cast</button>
-        <select id="cast-devices" hidden></select>
-        <span id="cast-status" class="chunk-counter"></span>
+
+      <div id="player-bar">
+        <div class="chunk-counter" id="chunk-counter"></div>
+        <div class="playback-row">
+          <button id="prev" class="round" title="previous section">&#9198;</button>
+          <button id="play" class="round primary big" title="play/pause">&#9654;</button>
+          <button id="next" class="round" title="next section">&#9197;</button>
+        </div>
+        <audio id="player" controls></audio>
       </div>
-      <audio id="player" controls></audio>
     </section>
   </main>
+
+  <div id="toast-container" aria-live="polite"></div>
+
+  <div id="confirm-overlay" class="modal-overlay" hidden>
+    <div class="modal">
+      <p id="confirm-message"></p>
+      <div class="modal-actions">
+        <button id="confirm-cancel">Cancel</button>
+        <button id="confirm-ok" class="danger">Delete</button>
+      </div>
+    </div>
+  </div>
+
   <script src="/app.js"></script>
 </body>
 </html>

@@ -6,6 +6,7 @@ talk to the same endpoints.
 """
 
 import json
+import time
 import uuid
 from pathlib import Path
 
@@ -13,9 +14,10 @@ from fastapi import FastAPI, HTTPException, Request, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
+from starlette.concurrency import run_in_threadpool
 
-from app import cast
-from app.extract import chunk_text, extract_text
+from app import cast, metadata
+from app.extract import chunk_text, extract_embedded_metadata, extract_text
 from app.tts import DEFAULT_RATE, DEFAULT_VOICE, VOICES, cache_key, synthesize
 
 STORAGE = Path(__file__).resolve().parent.parent / "storage"
@@ -88,9 +90,10 @@ async def upload_book(file: UploadFile):
     data = await file.read()
     original_path.write_bytes(data)
 
-    title = Path(file.filename or book_id).stem
+    filename_title = Path(file.filename or book_id).stem
     is_audio = suffix in AUDIO_SUFFIXES
 
+    embedded = {"title": None, "author": None}
     if is_audio:
         num_chunks = 1
     else:
@@ -102,17 +105,33 @@ async def upload_book(file: UploadFile):
         chunks = chunk_text(text)
         (book_dir / "chunks.json").write_text(json.dumps(chunks))
         num_chunks = len(chunks)
+        embedded = extract_embedded_metadata(original_path, suffix)
+
+    title = embedded["title"] or filename_title
 
     meta = {
         "id": book_id,
         "title": title,
+        "author": embedded["author"],
+        "cover_url": None,
+        "genre": None,
+        "year": None,
         "format": suffix.lstrip("."),
         "is_audio": is_audio,
         "num_chunks": num_chunks,
         "current_chunk": 0,
         "voice": DEFAULT_VOICE,
         "rate": DEFAULT_RATE,
+        "added_at": time.time(),
     }
+
+    found = await run_in_threadpool(metadata.lookup, title, embedded["author"])
+    if found:
+        meta["author"] = meta["author"] or found["author"]
+        meta["cover_url"] = found["cover_url"]
+        meta["genre"] = found["genre"]
+        meta["year"] = found["year"]
+
     save_meta(book_id, meta)
     return meta
 
