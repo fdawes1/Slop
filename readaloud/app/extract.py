@@ -3,6 +3,7 @@
 import re
 from pathlib import Path
 
+import ebooklib
 from bs4 import BeautifulSoup
 from ebooklib import epub
 from pypdf import PdfReader
@@ -30,7 +31,7 @@ def _extract_pdf(path: Path) -> str:
 def _extract_epub(path: Path) -> str:
     book = epub.read_epub(str(path))
     parts = []
-    for item in book.get_items_of_type(epub.ITEM_DOCUMENT):
+    for item in book.get_items_of_type(ebooklib.ITEM_DOCUMENT):
         soup = BeautifulSoup(item.get_content(), "html.parser")
         text = soup.get_text(separator="\n")
         if text.strip():
