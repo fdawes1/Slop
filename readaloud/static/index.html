@@ -13,8 +13,9 @@
   </header>
   <main>
     <div id="dropzone">
-      <p>drag a .txt / .pdf / .epub / .mp3 / .m4a / .m4b here, or click to choose</p>
-      <input id="file-input" type="file" accept=".txt,.pdf,.epub,.mp3,.m4a,.m4b" hidden />
+      <p>drag books or a whole folder here, or <a href="#" id="choose-files">choose files</a> / <a href="#" id="choose-folder">choose a folder</a></p>
+      <input id="file-input" type="file" accept=".txt,.pdf,.epub,.mp3,.m4a,.m4b" multiple hidden />
+      <input id="folder-input" type="file" webkitdirectory multiple hidden />
     </div>
 
     <div id="library"></div>

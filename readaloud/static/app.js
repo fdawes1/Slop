@@ -174,33 +174,101 @@ player.addEventListener("ended", () => {
   })
 );
 
-dropzone.addEventListener("click", () => fileInput.click());
+const SUPPORTED_EXTENSIONS = [".txt", ".pdf", ".epub", ".mp3", ".m4a", ".m4b"];
+const DROPZONE_DEFAULT_HTML = `<p>drag books or a whole folder here, or <a href="#" id="choose-files">choose files</a> / <a href="#" id="choose-folder">choose a folder</a></p>`;
+
+function isSupported(file) {
+  const name = file.name.toLowerCase();
+  return SUPPORTED_EXTENSIONS.some((ext) => name.endsWith(ext));
+}
+
+dropzone.addEventListener("click", (e) => {
+  if (e.target.id === "choose-files") {
+    e.preventDefault();
+    fileInput.click();
+  } else if (e.target.id === "choose-folder") {
+    e.preventDefault();
+    document.getElementById("folder-input").click();
+  }
+});
+
 dropzone.addEventListener("dragover", (e) => {
   e.preventDefault();
   dropzone.classList.add("dragover");
 });
 dropzone.addEventListener("dragleave", () => dropzone.classList.remove("dragover"));
-dropzone.addEventListener("drop", (e) => {
+dropzone.addEventListener("drop", async (e) => {
   e.preventDefault();
   dropzone.classList.remove("dragover");
-  if (e.dataTransfer.files.length) uploadFile(e.dataTransfer.files[0]);
+  const files = await filesFromDataTransfer(e.dataTransfer);
+  if (files.length) uploadFiles(files);
 });
 fileInput.addEventListener("change", () => {
-  if (fileInput.files.length) uploadFile(fileInput.files[0]);
+  if (fileInput.files.length) uploadFiles([...fileInput.files]);
+  fileInput.value = "";
+});
+document.getElementById("folder-input").addEventListener("change", (e) => {
+  if (e.target.files.length) uploadFiles([...e.target.files]);
+  e.target.value = "";
 });
 
-async function uploadFile(file) {
-  const form = new FormData();
-  form.append("file", file);
-  dropzone.textContent = `uploading ${file.name}...`;
-  try {
-    await api("/books", { method: "POST", body: form });
-  } catch (err) {
-    alert(`Upload failed: ${err.message}`);
-  } finally {
-    dropzone.innerHTML = `<p>drag a .txt / .pdf / .epub / .mp3 / .m4a / .m4b here, or click to choose</p>`;
-    loadLibrary();
+async function filesFromDataTransfer(dataTransfer) {
+  const items = dataTransfer.items;
+  if (!items || !items[0] || typeof items[0].webkitGetAsEntry !== "function") {
+    return [...dataTransfer.files];
   }
+  const entries = [...items].map((item) => item.webkitGetAsEntry()).filter(Boolean);
+  const files = [];
+  await Promise.all(entries.map((entry) => walkEntry(entry, files)));
+  return files;
+}
+
+function walkEntry(entry, files) {
+  return new Promise((resolve) => {
+    if (entry.isFile) {
+      entry.file((file) => {
+        files.push(file);
+        resolve();
+      }, resolve);
+    } else if (entry.isDirectory) {
+      const reader = entry.createReader();
+      const readBatch = () => {
+        reader.readEntries(async (batch) => {
+          if (!batch.length) {
+            resolve();
+            return;
+          }
+          await Promise.all(batch.map((child) => walkEntry(child, files)));
+          readBatch();
+        }, resolve);
+      };
+      readBatch();
+    } else {
+      resolve();
+    }
+  });
+}
+
+async function uploadFiles(files) {
+  const supported = files.filter(isSupported);
+  const skipped = files.length - supported.length;
+
+  for (let i = 0; i < supported.length; i++) {
+    const file = supported[i];
+    dropzone.textContent = `uploading ${i + 1} / ${supported.length}: ${file.name}`;
+    const form = new FormData();
+    form.append("file", file);
+    try {
+      await api("/books", { method: "POST", body: form });
+    } catch (err) {
+      console.error(`Upload failed for ${file.name}: ${err.message}`);
+    }
+  }
+
+  dropzone.innerHTML = DROPZONE_DEFAULT_HTML;
+  loadLibrary();
+
+  if (skipped) alert(`Skipped ${skipped} file(s) with unsupported extensions.`);
 }
 
 function resetCastUI() {
