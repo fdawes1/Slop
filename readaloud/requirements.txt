@@ -5,3 +5,4 @@ pypdf>=6.15
 ebooklib>=0.20
 beautifulsoup4>=4.15
 python-multipart>=0.0.32
+PyChromecast>=14.0

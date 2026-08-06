@@ -9,11 +9,12 @@ import json
 import uuid
 from pathlib import Path
 
-from fastapi import FastAPI, HTTPException, UploadFile
+from fastapi import FastAPI, HTTPException, Request, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
+from app import cast
 from app.extract import chunk_text, extract_text
 from app.tts import DEFAULT_RATE, DEFAULT_VOICE, VOICES, cache_key, synthesize
 
@@ -191,6 +192,48 @@ async def get_chunk_audio(book_id: str, index: int, voice: str | None = None, ra
         await synthesize(text, out_path, voice=voice, rate=rate)
 
     return FileResponse(out_path, media_type="audio/mpeg")
+
+
+@app.get("/api/cast/devices")
+def list_cast_devices():
+    return {"devices": cast.discover_devices()}
+
+
+@app.post("/api/books/{book_id}/cast")
+def start_casting(book_id: str, request: Request, device_name: str, index: int | None = None):
+    meta = load_meta(book_id)
+    start_index = meta["current_chunk"] if index is None else index
+    if not (0 <= start_index < meta["num_chunks"]):
+        raise HTTPException(400, "index out of range")
+
+    try:
+        result = cast.start_cast(
+            book_id,
+            device_name,
+            start_index,
+            str(request.base_url),
+            meta,
+            load_meta,
+            save_meta,
+        )
+    except ValueError as exc:
+        raise HTTPException(404, str(exc)) from exc
+
+    meta["current_chunk"] = start_index
+    save_meta(book_id, meta)
+    return result
+
+
+@app.post("/api/books/{book_id}/cast/stop")
+def stop_casting(book_id: str):
+    if not cast.stop_cast(book_id):
+        raise HTTPException(404, "no active cast session for this book")
+    return {"casting": False}
+
+
+@app.get("/api/books/{book_id}/cast/status")
+def get_cast_status(book_id: str):
+    return cast.cast_status(book_id) or {"casting": False}
 
 
 BOOKS_DIR.mkdir(parents=True, exist_ok=True)
