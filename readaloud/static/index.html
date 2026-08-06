@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>readaloud</title>
+  <link rel="stylesheet" href="/style.css" />
+</head>
+<body>
+  <header>
+    <h1>readaloud</h1>
+    <p>drop a book in, put your feet up</p>
+  </header>
+  <main>
+    <div id="dropzone">
+      <p>drag a .txt / .pdf / .epub here, or click to choose</p>
+      <input id="file-input" type="file" accept=".txt,.pdf,.epub" hidden />
+    </div>
+
+    <div id="library"></div>
+
+    <section id="reader">
+      <button id="back">&larr; library</button>
+      <h2 id="reader-title"></h2>
+      <div id="reader-text"></div>
+      <div class="controls">
+        <button id="prev">&laquo; prev</button>
+        <button id="play" class="primary">play</button>
+        <button id="next">next &raquo;</button>
+        <select id="voice"></select>
+        <select id="rate">
+          <option value="-20%">0.8x</option>
+          <option value="+0%" selected>1x</option>
+          <option value="+20%">1.2x</option>
+          <option value="+40%">1.4x</option>
+        </select>
+        <span class="chunk-counter" id="chunk-counter"></span>
+      </div>
+      <audio id="player"></audio>
+    </section>
+  </main>
+  <script src="/app.js"></script>
+</body>
+</html>
