@@ -13,8 +13,8 @@
   </header>
   <main>
     <div id="dropzone">
-      <p>drag a .txt / .pdf / .epub here, or click to choose</p>
-      <input id="file-input" type="file" accept=".txt,.pdf,.epub" hidden />
+      <p>drag a .txt / .pdf / .epub / .mp3 / .m4a / .m4b here, or click to choose</p>
+      <input id="file-input" type="file" accept=".txt,.pdf,.epub,.mp3,.m4a,.m4b" hidden />
     </div>
 
     <div id="library"></div>
@@ -36,7 +36,7 @@
         </select>
         <span class="chunk-counter" id="chunk-counter"></span>
       </div>
-      <audio id="player"></audio>
+      <audio id="player" controls></audio>
     </section>
   </main>
   <script src="/app.js"></script>

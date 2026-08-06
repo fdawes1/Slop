@@ -22,7 +22,15 @@ BOOKS_DIR = STORAGE / "books"
 AUDIO_DIR = STORAGE / "audio"
 STATIC_DIR = Path(__file__).resolve().parent.parent / "static"
 
-SUPPORTED_SUFFIXES = {".txt", ".pdf", ".epub"}
+TEXT_SUFFIXES = {".txt", ".pdf", ".epub"}
+AUDIO_SUFFIXES = {".mp3", ".m4a", ".m4b"}
+SUPPORTED_SUFFIXES = TEXT_SUFFIXES | AUDIO_SUFFIXES
+
+AUDIO_MEDIA_TYPES = {
+    ".mp3": "audio/mpeg",
+    ".m4a": "audio/mp4",
+    ".m4b": "audio/mp4",
+}
 
 app = FastAPI(title="readaloud")
 
@@ -69,7 +77,7 @@ def list_books():
 async def upload_book(file: UploadFile):
     suffix = Path(file.filename or "").suffix.lower()
     if suffix not in SUPPORTED_SUFFIXES:
-        raise HTTPException(400, f"unsupported file type {suffix!r}, use .txt/.pdf/.epub")
+        raise HTTPException(400, f"unsupported file type {suffix!r}, use .txt/.pdf/.epub/.mp3/.m4a/.m4b")
 
     book_id = uuid.uuid4().hex[:12]
     book_dir = BOOKS_DIR / book_id
@@ -79,20 +87,27 @@ async def upload_book(file: UploadFile):
     data = await file.read()
     original_path.write_bytes(data)
 
-    try:
-        text = extract_text(original_path, suffix)
-    except Exception as exc:
-        raise HTTPException(400, f"could not extract text: {exc}") from exc
-
-    chunks = chunk_text(text)
-    (book_dir / "chunks.json").write_text(json.dumps(chunks))
-
     title = Path(file.filename or book_id).stem
+    is_audio = suffix in AUDIO_SUFFIXES
+
+    if is_audio:
+        num_chunks = 1
+    else:
+        try:
+            text = extract_text(original_path, suffix)
+        except Exception as exc:
+            raise HTTPException(400, f"could not extract text: {exc}") from exc
+
+        chunks = chunk_text(text)
+        (book_dir / "chunks.json").write_text(json.dumps(chunks))
+        num_chunks = len(chunks)
+
     meta = {
         "id": book_id,
         "title": title,
         "format": suffix.lstrip("."),
-        "num_chunks": len(chunks),
+        "is_audio": is_audio,
+        "num_chunks": num_chunks,
         "current_chunk": 0,
         "voice": DEFAULT_VOICE,
         "rate": DEFAULT_RATE,
@@ -111,6 +126,8 @@ def get_chunk_text(book_id: str, index: int):
     meta = load_meta(book_id)
     if not (0 <= index < meta["num_chunks"]):
         raise HTTPException(404, "chunk out of range")
+    if meta.get("is_audio"):
+        return {"index": index, "text": None, "num_chunks": meta["num_chunks"]}
     chunks = json.loads((BOOKS_DIR / book_id / "chunks.json").read_text())
     return {"index": index, "text": chunks[index], "num_chunks": meta["num_chunks"]}
 
@@ -155,6 +172,11 @@ async def get_chunk_audio(book_id: str, index: int, voice: str | None = None, ra
     meta = load_meta(book_id)
     if not (0 <= index < meta["num_chunks"]):
         raise HTTPException(404, "chunk out of range")
+
+    if meta.get("is_audio"):
+        suffix = f".{meta['format']}"
+        original_path = BOOKS_DIR / book_id / f"original{suffix}"
+        return FileResponse(original_path, media_type=AUDIO_MEDIA_TYPES.get(suffix, "audio/mpeg"))
 
     voice = voice or meta["voice"]
     rate = rate or meta["rate"]

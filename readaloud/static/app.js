@@ -41,10 +41,13 @@ async function loadLibrary() {
     const card = document.createElement("div");
     card.className = "book-card";
     const pct = book.num_chunks ? Math.round((book.current_chunk / book.num_chunks) * 100) : 0;
+    const sub = book.is_audio
+      ? `${book.format.toUpperCase()} &middot; audiobook`
+      : `${book.format.toUpperCase()} &middot; ${book.num_chunks} sections &middot; ${pct}% done`;
     card.innerHTML = `
       <div style="flex:1">
         <div class="title">${escapeHtml(book.title)}</div>
-        <div class="sub">${book.format.toUpperCase()} &middot; ${book.num_chunks} sections &middot; ${pct}% done</div>
+        <div class="sub">${sub}</div>
         <div class="progress-bar"><div style="width:${pct}%"></div></div>
       </div>
       <button class="delete" title="delete">&times;</button>
@@ -67,20 +70,34 @@ function escapeHtml(s) {
 }
 
 async function openBook(book) {
-  current = { id: book.id, num_chunks: book.num_chunks, index: book.current_chunk, voice: book.voice, rate: book.rate };
+  current = {
+    id: book.id,
+    num_chunks: book.num_chunks,
+    index: book.current_chunk,
+    voice: book.voice,
+    rate: book.rate,
+    isAudio: book.is_audio,
+  };
   voiceSelect.value = book.voice;
   rateSelect.value = book.rate;
   reader.classList.add("active");
   readerTitle.textContent = book.title;
+
+  const ttsOnly = [prevBtn, nextBtn, voiceSelect, rateSelect, chunkCounter];
+  ttsOnly.forEach((el) => (el.style.display = book.is_audio ? "none" : ""));
+  readerText.style.display = book.is_audio ? "none" : "";
+
   await showChunk(current.index);
 }
 
 async function showChunk(index) {
-  const { text } = await api(`/books/${current.id}/chunks/${index}`);
-  readerText.textContent = text;
-  chunkCounter.textContent = `${index + 1} / ${current.num_chunks}`;
-  prevBtn.disabled = index === 0;
-  nextBtn.disabled = index === current.num_chunks - 1;
+  if (!current.isAudio) {
+    const { text } = await api(`/books/${current.id}/chunks/${index}`);
+    readerText.textContent = text;
+    chunkCounter.textContent = `${index + 1} / ${current.num_chunks}`;
+    prevBtn.disabled = index === 0;
+    nextBtn.disabled = index === current.num_chunks - 1;
+  }
   current.index = index;
   await api(`/books/${current.id}/progress?current_chunk=${index}`, { method: "PATCH" });
 
@@ -91,6 +108,7 @@ async function showChunk(index) {
 }
 
 function audioUrl(index) {
+  if (current.isAudio) return `/api/books/${current.id}/audio/${index}`;
   const v = encodeURIComponent(voiceSelect.value);
   const r = encodeURIComponent(rateSelect.value);
   return `/api/books/${current.id}/audio/${index}?voice=${v}&rate=${r}`;
@@ -160,7 +178,7 @@ async function uploadFile(file) {
   } catch (err) {
     alert(`Upload failed: ${err.message}`);
   } finally {
-    dropzone.innerHTML = `<p>drag a .txt / .pdf / .epub here, or click to choose</p>`;
+    dropzone.innerHTML = `<p>drag a .txt / .pdf / .epub / .mp3 / .m4a / .m4b here, or click to choose</p>`;
     loadLibrary();
   }
 }
